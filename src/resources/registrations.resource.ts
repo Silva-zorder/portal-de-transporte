@@ -1,4 +1,4 @@
-import { TruckIcon } from "@phosphor-icons/react";
+import { PackageIcon } from "@phosphor-icons/react";
 import { useCarrierCreateMutation } from "@/hooks/use-carrier-create-mutation";
 import { useCarrierFetchAllQuery } from "@/hooks/use-carrier-fetch-all-query";
 import { useCarrierRemoveMutation } from "@/hooks/use-carrier-remove-mutation";
@@ -9,7 +9,6 @@ import { useCarrierServiceUpdateMutation } from "@/hooks/use-carrier-service-upd
 import { useCarrierUpdateMutation } from "@/hooks/use-carrier-update-mutation";
 import { useCustomerCreateMutation } from "@/hooks/use-customer-create-mutation";
 import { useCustomerFetchAllQuery } from "@/hooks/use-customer-fetch-all-query";
-import { useCustomerFindByIdQuery } from "@/hooks/use-customer-find-by-id-query";
 import { useCustomerGroupCreateMutation } from "@/hooks/use-customer-group-create-mutation";
 import { useCustomerGroupFetchAllQuery } from "@/hooks/use-customer-group-fetch-all-query";
 import { useCustomerGroupFindByIdQuery } from "@/hooks/use-customer-group-find-by-id-query";
@@ -77,10 +76,19 @@ const carrierResource = defineResource<Carrier>({
   columns: [
     { key: "id", header: "ID", size: 96 },
     { key: "name", header: "Transportadora" },
+    {
+      key: "partner",
+      header: "Parceria",
+      kind: "badge",
+      size: 160,
+      filterable: true,
+      valueLabels: { true: "Parceira", false: "Não parceira" },
+      badgeVariants: { Parceira: "primary", "Não parceira": "outline" },
+    },
   ],
   searchKeys: ["id", "name"],
   searchPlaceholder: "Pesquisar transportadora...",
-  toolbar: ["filter"],
+  toolbar: [],
   createLabel: "Nova transportadora",
   form: {
     kind: "drawer",
@@ -115,7 +123,7 @@ const carrierServiceResource = defineResource<CarrierService>({
   ],
   searchKeys: ["id", "acronym", "carrierName", "name"],
   searchPlaceholder: "Pesquisar serviço...",
-  toolbar: ["filter"],
+  toolbar: [],
   createLabel: "Novo serviço",
   form: {
     kind: "drawer",
@@ -175,14 +183,14 @@ function useGroupMemberPrepare() {
 const customerMarketplaceFields = [
   { name: "marketplace", label: "Marketplace", kind: "select", options: marketplaceOptions, required: true, span: "half" },
   { name: "description", label: "Descrição", span: "half" },
-  { name: "userId", label: "User ID", required: true },
+  { name: "userId", label: "Identificador do vendedor", required: true },
 ] as const;
 
 const customerMarketplaceDefaults = {
   identifier: "",
   customerId: 0,
   customerName: "",
-  marketplace: "",
+  marketplace: "Mercado Livre",
   description: "",
   userId: "",
   active: true,
@@ -207,7 +215,7 @@ const marketplaceCarrierResource = defineResource<MarketplaceCarrier>({
   ],
   searchKeys: ["carrierService", "marketplaceCode"],
   searchPlaceholder: "Pesquisar serviço de transportadora...",
-  toolbar: ["export", "import", "filter"],
+  toolbar: ["export", "import"],
   createLabel: "Nova transportadora",
   form: {
     kind: "dialog",
@@ -248,21 +256,28 @@ const customerMarketplaceResource = defineResource<CustomerMarketplace>({
   statusSwitch: true,
   columns: [
     { key: "identifier", header: "Identificador", size: 120 },
-    { key: "customerName", header: "Cliente", filterable: true },
-    { key: "marketplace", header: "Marketplace", size: 140, filterable: true },
+    { key: "customerId", header: "ID cliente", size: 110 },
+    { key: "customerName", header: "Cliente" },
+    { key: "marketplace", header: "Marketplace", size: 140 },
     { key: "description", header: "Descrição" },
-    { key: "userId", header: "User ID", size: 140 },
+    { key: "userId", header: "Identificador do vendedor", size: 200 },
   ],
-  searchKeys: ["identifier", "customerName", "marketplace", "description"],
+  searchKeys: ["identifier", "customerId", "customerName", "description"],
   searchPlaceholder: "Pesquisar por cliente ou marketplace...",
-  toolbar: ["download-csv", "filter"],
+  filters: [
+    { key: "identifier", label: "Identificador", kind: "search" },
+    { key: "customerId", label: "ID cliente", kind: "search" },
+    { key: "customerName", label: "Nome cliente", kind: "search" },
+    { key: "description", label: "Descrição", kind: "search" },
+    { key: "active", label: "Ativo", kind: "select", valueLabels: { true: "Ativo", false: "Inativo" } },
+  ],
+  toolbar: ["download-csv"],
   createLabel: "Novo marketplace",
   recordPath: (market) => `/cadastros/marketplace/${market.id}`,
   rowLinks: [
     {
       key: "carriers",
       label: "Transportadoras",
-      icon: TruckIcon,
       to: (market) => `/cadastros/marketplace/${market.id}/transportadoras`,
     },
   ],
@@ -282,40 +297,6 @@ const customerMarketplaceResource = defineResource<CustomerMarketplace>({
       },
       ...customerMarketplaceFields,
     ],
-  },
-});
-
-/** Mesmos marketplaces, vistos de dentro do cliente (1.4): sem a coluna Cliente e com edição em dialog. */
-const customerOwnMarketplaceResource = defineResource<CustomerMarketplace>({
-  key: "customer-own-marketplaces",
-  title: "Marketplaces",
-  noun: "marketplace",
-  article: "o",
-  describe: (market) => market.marketplace,
-  hooks: {
-    useFetchAll: useCustomerMarketplaceFetchAllQuery,
-    useCreate: useCustomerMarketplaceCreateMutation,
-    useUpdate: useCustomerMarketplaceUpdateMutation,
-    useRemove: useCustomerMarketplaceRemoveMutation,
-  },
-  columns: [
-    { key: "id", header: "ID", size: 96 },
-    { key: "marketplace", header: "Marketplace", filterable: true },
-    { key: "description", header: "Descrição" },
-    { key: "userId", header: "User ID", size: 160 },
-    { key: "active", header: "Status", kind: "status-text", size: 120, filterable: true },
-  ],
-  searchKeys: ["id", "marketplace", "description", "userId"],
-  searchPlaceholder: "Pesquisar marketplace...",
-  toolbar: ["export", "import", "filter"],
-  createLabel: "Vincular marketplace",
-  recordPath: (market) => `/cadastros/marketplace/${market.id}`,
-  form: {
-    kind: "dialog",
-    createTitle: "Vincular marketplace",
-    editTitle: (market) => `Editar marketplace · ${market.marketplace}`,
-    defaults: customerMarketplaceDefaults,
-    fields: [...customerMarketplaceFields],
   },
 });
 
@@ -340,9 +321,35 @@ const customerResource = defineResource<Customer>({
   ],
   searchKeys: ["id", "name", "identifier"],
   searchPlaceholder: "Pesquisar cliente...",
-  toolbar: ["download-csv", "filter"],
+  toolbar: ["download-csv"],
   createLabel: "Novo cliente",
-  recordPath: (customer) => `/cadastros/clientes/${customer.id}`,
+  detail: {
+    kind: "drawer",
+    title: (customer) => customer.name,
+    fields: [
+      { name: "name", label: "Nome" },
+      { name: "identifier", label: "Identificador", span: "half" },
+      { name: "platform", label: "Plataforma", span: "half" },
+      { name: "cnpj", label: "CNPJ", span: "half" },
+      { name: "active", label: "Status", kind: "status", span: "half" },
+      { name: "token", label: "Token", span: "half" },
+      { name: "analyst", label: "Analista responsável", span: "half" },
+    ],
+  },
+  views: [
+    {
+      key: "melhor-envio",
+      label: "Visualizar Melhor Envio",
+      icon: PackageIcon,
+      kind: "drawer",
+      title: (customer) => `Melhor Envio · ${customer.name}`,
+      fields: [
+        { name: "melhorEnvioId", label: "Id cliente" },
+        { name: "melhorEnvioToken", label: "Token cliente" },
+        { name: "melhorEnvioAuthCode", label: "Código de autorização" },
+      ],
+    },
+  ],
   form: {
     kind: "drawer",
     createTitle: "Novo cliente",
@@ -355,6 +362,8 @@ const customerResource = defineResource<Customer>({
       token: "",
       analyst: "",
       melhorEnvioId: "",
+      melhorEnvioToken: "",
+      melhorEnvioAuthCode: "",
       active: true,
     },
     fields: [
@@ -367,53 +376,6 @@ const customerResource = defineResource<Customer>({
       { name: "melhorEnvioId", label: "Id cliente no Melhor Envio" },
     ],
   },
-});
-
-const customerRecord = defineRecord<Customer>({
-  definition: customerResource,
-  listPath: "/cadastros/clientes",
-  useFindById: useCustomerFindByIdQuery,
-  title: (customer) => customer.name,
-  status: (customer) => formatStatus(customer.active),
-  editLabel: "Editar cliente",
-  cards: [
-    {
-      key: "identification",
-      title: "Identificação",
-      description: "Dados gerais do cliente",
-      span: "half",
-      fields: [
-        { name: "name", label: "Nome" },
-        { name: "identifier", label: "Identificador", span: "half" },
-        { name: "platform", label: "Plataforma", span: "half" },
-        { name: "cnpj", label: "CNPJ", span: "half" },
-        { name: "active", label: "Status", kind: "status", span: "half" },
-      ],
-    },
-    {
-      key: "integration",
-      title: "Integração",
-      description: "Token e vínculo com o Melhor Envio",
-      span: "half",
-      fields: [
-        { name: "token", label: "Token", span: "third" },
-        { name: "analyst", label: "Analista responsável", span: "third" },
-        { name: "melhorEnvioId", label: "Melhor Envio", span: "third" },
-      ],
-    },
-  ],
-  tabs: [
-    {
-      key: "marketplaces",
-      label: "Marketplaces",
-      definition: customerOwnMarketplaceResource,
-      parentKey: "customerId",
-      parentValues: (customer) => ({ customerName: customer.name }),
-      summary: (count) =>
-        `${formatInteger(count)} marketplaces vinculados a este cliente`,
-      linkLabel: "Ver marketplaces",
-    },
-  ],
 });
 
 const customerMarketplaceRecord = defineRecord<CustomerMarketplace>({
@@ -434,7 +396,7 @@ const customerMarketplaceRecord = defineRecord<CustomerMarketplace>({
         { name: "customerName", label: "Cliente" },
         { name: "marketplace", label: "Marketplace", span: "half" },
         { name: "description", label: "Descrição", span: "half" },
-        { name: "userId", label: "User ID", span: "half" },
+        { name: "userId", label: "Identificador do vendedor", span: "half" },
         { name: "active", label: "Status", kind: "status", span: "half" },
       ],
     },
@@ -463,6 +425,7 @@ const customerGroupMemberResource = defineResource<CustomerGroupMember>({
     useCreate: useCustomerGroupMemberCreateMutation,
     useRemove: useCustomerGroupMemberRemoveMutation,
   },
+  exposeRemove: true,
   columns: [
     { key: "id", header: "ID", size: 96 },
     { key: "name", header: "Nome" },
@@ -470,7 +433,7 @@ const customerGroupMemberResource = defineResource<CustomerGroupMember>({
   ],
   searchKeys: ["id", "name", "identifier"],
   searchPlaceholder: "Pesquisar cliente...",
-  toolbar: ["export", "import", "filter"],
+  toolbar: ["export", "import"],
   createLabel: "Adicionar cliente",
   form: {
     kind: "dialog",
@@ -510,9 +473,16 @@ const customerGroupResource = defineResource<CustomerGroup>({
   ],
   searchKeys: ["id", "description"],
   searchPlaceholder: "Pesquisar grupo...",
-  toolbar: ["refresh", "filter"],
+  toolbar: ["refresh"],
   createLabel: "Novo grupo",
   recordPath: (group) => `/cadastros/grupos-de-clientes/${group.id}`,
+  rowLinks: [
+    {
+      key: "members",
+      label: "Clientes do grupo",
+      to: (group) => `/cadastros/grupos-de-clientes/${group.id}/clientes`,
+    },
+  ],
   form: {
     kind: "drawer",
     createTitle: "Novo grupo",
@@ -565,7 +535,6 @@ export {
   customerGroupResource,
   customerMarketplaceRecord,
   customerMarketplaceResource,
-  customerRecord,
   customerResource,
   useCarrierServiceNameOptions,
   useCustomerNameOptions,

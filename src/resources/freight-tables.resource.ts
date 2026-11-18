@@ -1,13 +1,10 @@
-import {
-  MapPinIcon,
-  PercentIcon,
-  ScalesIcon,
-} from "@phosphor-icons/react";
+import { EyeIcon, GearSixIcon } from "@phosphor-icons/react";
 import { useDeadlineTableCreateMutation } from "@/hooks/use-deadline-table-create-mutation";
 import { useDeadlineTableFetchAllQuery } from "@/hooks/use-deadline-table-fetch-all-query";
 import { useDeadlineTableFindByIdQuery } from "@/hooks/use-deadline-table-find-by-id-query";
 import { useDeadlineTableRemoveMutation } from "@/hooks/use-deadline-table-remove-mutation";
 import { useDeadlineTableUpdateMutation } from "@/hooks/use-deadline-table-update-mutation";
+import { useCustomerFetchAllQuery } from "@/hooks/use-customer-fetch-all-query";
 import { usePriceFeeCreateMutation } from "@/hooks/use-price-fee-create-mutation";
 import { usePriceFeeFetchAllQuery } from "@/hooks/use-price-fee-fetch-all-query";
 import { usePriceFeeRemoveMutation } from "@/hooks/use-price-fee-remove-mutation";
@@ -30,14 +27,18 @@ import { useZipRangeFetchAllQuery } from "@/hooks/use-zip-range-fetch-all-query"
 import { useZipRangeRemoveMutation } from "@/hooks/use-zip-range-remove-mutation";
 import { useZipRangeUpdateMutation } from "@/hooks/use-zip-range-update-mutation";
 import { EnumCalculationBaseOptions } from "@/lib/enum/calculation-base";
+import { EnumCarrierApiTypeOptions } from "@/lib/enum/carrier-api-type";
 import { EnumFeeTypeOptions } from "@/lib/enum/fee-type";
+import { EnumFreightCalculationTypeOptions } from "@/lib/enum/freight-calculation-type";
+import { EnumLoadTypeOptions } from "@/lib/enum/load-type";
 import { EnumPlatformOptions } from "@/lib/enum/platform";
 import { EnumPriceTableTypeOptions } from "@/lib/enum/price-table-type";
 import { EnumSharedPlatformOptions } from "@/lib/enum/shared-platform";
 import { EnumTariffAcronymOptions } from "@/lib/enum/tariff-acronym";
+import { EnumUfOptions } from "@/lib/enum/uf";
 import { formatInteger, formatStatus } from "@/lib/resource/format";
 import { defineRecord } from "@/lib/resource/record";
-import { defineResource } from "@/lib/resource/types";
+import { defineResource, type ResourceField } from "@/lib/resource/types";
 import type { DeadlineTable } from "@/services/portal/v1/deadline-table.service";
 import type { PriceFee } from "@/services/portal/v1/price-fee.service";
 import type { PriceLoad } from "@/services/portal/v1/price-load.service";
@@ -55,6 +56,12 @@ const priceTableTypeOptions = EnumPriceTableTypeOptions.map((option) => option.v
 const tariffAcronymOptions = EnumTariffAcronymOptions.map((option) => option.value);
 const feeTypeOptions = EnumFeeTypeOptions.map((option) => option.value);
 const calculationBaseOptions = EnumCalculationBaseOptions.map((option) => option.value);
+const loadTypeOptions = EnumLoadTypeOptions.map((option) => option.value);
+const ufOptions = EnumUfOptions.map((option) => option.value);
+const freightCalculationTypeOptions = EnumFreightCalculationTypeOptions.map(
+  (option) => option.value,
+);
+const carrierApiTypeOptions = EnumCarrierApiTypeOptions.map((option) => option.value);
 
 const NO_OPTIONS: readonly string[] = [];
 
@@ -80,14 +87,21 @@ const zipRangeResource = defineResource<ZipRange>({
   },
   columns: [
     { key: "id", header: "ID", size: 96 },
-    { key: "tariffAcronym", header: "Sigla tarifária", filterable: true },
+    { key: "tariffAcronym", header: "Sigla tarifária" },
     { key: "zipStart", header: "CEP inicial" },
     { key: "zipEnd", header: "CEP final" },
     { key: "days", header: "Prazo (dias)", size: 140 },
+    { key: "maxDays", header: "Prazo máximo (dias)", size: 180 },
   ],
-  searchKeys: ["tariffAcronym", "zipStart", "zipEnd"],
-  searchPlaceholder: "Pesquisar por CEP ou sigla tarifária...",
-  toolbar: ["export", "import", "filter"],
+  searchKeys: ["id"],
+  searchPlaceholder: "Pesquisar por ID...",
+  filters: [
+    { key: "id", label: "ID", kind: "search" },
+    { key: "tariffAcronym", label: "Sigla tarifária", kind: "input" },
+    { key: "zipStart", label: "CEP", kind: "input", keys: ["zipStart", "zipEnd"] },
+    { key: "days", label: "Prazo", kind: "input", keys: ["days", "maxDays"] },
+  ],
+  toolbar: ["export", "import"],
   createLabel: "Nova faixa",
   form: {
     kind: "dialog",
@@ -99,6 +113,7 @@ const zipRangeResource = defineResource<ZipRange>({
       zipStart: "",
       zipEnd: "",
       days: 1,
+      maxDays: 1,
     },
     fields: [
       {
@@ -110,7 +125,8 @@ const zipRangeResource = defineResource<ZipRange>({
       },
       { name: "zipStart", label: "CEP inicial", kind: "cep", span: "half", required: true, placeholder: "00000-000" },
       { name: "zipEnd", label: "CEP final", kind: "cep", span: "half", required: true, placeholder: "00000-000" },
-      { name: "days", label: "Prazo (dias)", kind: "integer", required: true },
+      { name: "days", label: "Prazo (dias)", kind: "integer", span: "half", required: true },
+      { name: "maxDays", label: "Prazo máximo (dias)", kind: "integer", span: "half", required: true },
     ],
   },
 });
@@ -136,14 +152,13 @@ const deadlineTableResource = defineResource<DeadlineTable>({
   ],
   searchKeys: ["id", "name", "carrierService"],
   searchPlaceholder: "Pesquisar tabela de prazo...",
-  toolbar: ["download-csv", "filter"],
+  toolbar: ["download-csv"],
   createLabel: "Nova tabela de prazo",
   recordPath: (table) => `/tabelas-de-frete/prazos/${table.id}`,
   rowLinks: [
     {
       key: "zip-ranges",
       label: "Faixas de CEP",
-      icon: MapPinIcon,
       to: (table) => `/tabelas-de-frete/prazos/${table.id}/faixas-de-cep`,
     },
   ],
@@ -156,26 +171,30 @@ const deadlineTableResource = defineResource<DeadlineTable>({
       carrierService: "",
       name: "",
       sharedPlatforms: "MZ",
-      additionalDays: 0,
-      cutoffTime: "14:00",
-      considerHolidays: true,
       active: true,
     },
     fields: [
+      { name: "platform", label: "Plataforma", kind: "select", options: platformOptions, span: "half", required: true },
+      { name: "sharedPlatforms", label: "Plataformas compartilhadas", kind: "select", options: sharedPlatformOptions, span: "half" },
       { name: "name", label: "Nome", required: true },
       {
         name: "carrierService",
         label: "Transportadora serviço",
         kind: "select",
-        span: "half",
         required: true,
         useOptions: useCarrierServiceNameOptions,
       },
-      { name: "platform", label: "Plataforma", kind: "select", options: platformOptions, span: "half", required: true },
+    ],
+    editFields: [
       { name: "sharedPlatforms", label: "Plataformas compartilhadas", kind: "select", options: sharedPlatformOptions },
-      { name: "additionalDays", label: "Dias adicionais", kind: "integer", span: "half" },
-      { name: "cutoffTime", label: "Horário de corte", span: "half", placeholder: "00:00" },
-      { name: "considerHolidays", label: "Considerar feriados", kind: "switch" },
+      { name: "name", label: "Nome", required: true },
+      {
+        name: "carrierService",
+        label: "Transportadora serviço",
+        kind: "select",
+        required: true,
+        useOptions: useCarrierServiceNameOptions,
+      },
     ],
   },
 });
@@ -192,23 +211,13 @@ const deadlineTableRecord = defineRecord<DeadlineTable>({
       key: "identification",
       title: "Identificação",
       description: "Dados gerais da tabela",
-      span: "half",
+      span: "full",
       fields: [
         { name: "name", label: "Nome" },
         { name: "carrierService", label: "Transportadora serviço", span: "half" },
+        { name: "platform", label: "Plataforma", span: "half" },
         { name: "sharedPlatforms", label: "Plataformas compartilhadas", span: "half" },
-        { name: "active", label: "Status", kind: "status-feminine" },
-      ],
-    },
-    {
-      key: "settings",
-      title: "Configuração de prazos",
-      description: "Regras aplicadas sobre o prazo da faixa",
-      span: "half",
-      fields: [
-        { name: "additionalDays", label: "Dias adicionais", span: "third" },
-        { name: "cutoffTime", label: "Horário de corte", span: "third" },
-        { name: "considerHolidays", label: "Considerar feriados", kind: "switch", span: "third" },
+        { name: "active", label: "Status", kind: "status-feminine", span: "half" },
       ],
     },
   ],
@@ -239,20 +248,33 @@ const priceLoadResource = defineResource<PriceLoad>({
   },
   columns: [
     { key: "id", header: "ID", size: 120 },
-    { key: "tariffAcronym", header: "Sigla tarifária", filterable: true },
-    { key: "weightLimit", header: "Limite de peso (kg)", kind: "decimal" },
+    { key: "tariffAcronym", header: "Sigla tarifária" },
+    { key: "type", header: "Tipo" },
+    { key: "calculationBase", header: "Base de cálculo" },
+    { key: "weightLimit", header: "Peso até (kg)", kind: "decimal" },
     { key: "value", header: "Valor", kind: "money" },
   ],
-  searchKeys: ["id", "tariffAcronym"],
+  searchKeys: ["tariffAcronym"],
   searchPlaceholder: "Pesquisar por sigla tarifária...",
-  toolbar: ["export", "import", "filter"],
+  filters: [
+    { key: "tariffAcronym", label: "Sigla tarifária", kind: "search" },
+    { key: "value", label: "Valor", kind: "input", format: "money" },
+    { key: "weightLimit", label: "Peso até", kind: "input", format: "decimal" },
+  ],
+  toolbar: ["export", "import"],
   createLabel: "Nova carga",
   form: {
     kind: "dialog",
     createTitle: "Nova carga",
-    editTitle: (load) =>
-      `Editar carga · ${load.tariffAcronym} até ${formatInteger(load.weightLimit)} kg`,
-    defaults: { priceTableId: 0, tariffAcronym: "", weightLimit: 0, value: 0 },
+    editTitle: (load) => `Editar carga · ${load.tariffAcronym}`,
+    defaults: {
+      priceTableId: 0,
+      tariffAcronym: "",
+      type: "",
+      calculationBase: "",
+      weightLimit: 0,
+      value: 0,
+    },
     fields: [
       {
         name: "tariffAcronym",
@@ -261,11 +283,25 @@ const priceLoadResource = defineResource<PriceLoad>({
         options: tariffAcronymOptions,
         required: true,
       },
-      { name: "weightLimit", label: "Limite de peso (kg)", kind: "decimal", required: true },
-      { name: "value", label: "Valor", kind: "money", required: true },
+      { name: "type", label: "Tipo", kind: "select", options: loadTypeOptions, required: true },
+      { name: "calculationBase", label: "Base de cálculo", kind: "select", options: calculationBaseOptions, required: true },
     ],
   },
 });
+
+const priceFeeFields: ResourceField<PriceFee>[] = [
+  { name: "tariffAcronym", label: "Sigla tarifária", kind: "select", options: tariffAcronymOptions, required: true },
+  { name: "zipStart", label: "CEP inicial", span: "half", required: true },
+  { name: "zipEnd", label: "CEP final", span: "half", required: true },
+  { name: "type", label: "Tipo", kind: "select", options: feeTypeOptions, span: "half", required: true },
+  { name: "originUf", label: "UF origem", kind: "select", options: ufOptions, span: "half", required: true },
+  { name: "calculationBase", label: "Base de cálculo", kind: "select", options: calculationBaseOptions, required: true },
+  { name: "baseValueStart", label: "Base de cálculo · valor inicial", kind: "money", span: "half" },
+  { name: "baseValueEnd", label: "Base de cálculo · valor final", kind: "money", span: "half" },
+  { name: "value", label: "Valor", kind: "decimal", span: "third", required: true },
+  { name: "minValue", label: "Valor mínimo", kind: "money", span: "third" },
+  { name: "order", label: "Ordem", kind: "integer", span: "third", required: true },
+];
 
 const priceFeeResource = defineResource<PriceFee>({
   key: "price-fees",
@@ -281,38 +317,46 @@ const priceFeeResource = defineResource<PriceFee>({
   },
   columns: [
     { key: "id", header: "ID", size: 110 },
+    { key: "tariffAcronym", header: "Sigla tarifária", size: 130 },
     { key: "zipStart", header: "CEP inicial" },
     { key: "zipEnd", header: "CEP final" },
-    { key: "type", header: "Tipo", filterable: true },
-    { key: "calculationBase", header: "Base de cálculo", filterable: true },
+    { key: "type", header: "Tipo" },
+    { key: "originUf", header: "UF origem", size: 110 },
+    { key: "calculationBase", header: "Base de cálculo" },
     { key: "value", header: "Valor", kind: "decimal", size: 110 },
+    { key: "minValue", header: "Valor mínimo", kind: "money", size: 130 },
     { key: "order", header: "Ordem", size: 96 },
   ],
-  searchKeys: ["zipStart", "zipEnd", "type"],
-  searchPlaceholder: "Pesquisar por CEP ou tipo...",
-  toolbar: ["export", "import", "filter"],
+  searchKeys: ["zipStart", "zipEnd", "order", "value"],
+  searchPlaceholder: "Pesquisar taxa...",
+  filters: [
+    { key: "zipStart", label: "CEP", kind: "search", keys: ["zipStart", "zipEnd"] },
+    { key: "order", label: "Ordem", kind: "search" },
+    { key: "value", label: "Valor", kind: "search", format: "decimal" },
+    { key: "type", label: "Tipo", kind: "select" },
+    { key: "calculationBase", label: "Base de cálculo", kind: "select" },
+  ],
+  toolbar: ["export", "import"],
   createLabel: "Nova taxa",
   form: {
-    kind: "dialog",
+    kind: "drawer",
     createTitle: "Nova taxa",
     editTitle: (fee) => `Editar taxa · ${fee.type}`,
     defaults: {
       priceTableId: 0,
+      tariffAcronym: "",
       zipStart: "",
       zipEnd: "",
       type: "",
+      originUf: "",
       calculationBase: "",
+      baseValueStart: 0,
+      baseValueEnd: 0,
       value: 0,
+      minValue: 0,
       order: 1,
     },
-    fields: [
-      { name: "zipStart", label: "CEP inicial", span: "half", required: true },
-      { name: "zipEnd", label: "CEP final", span: "half", required: true },
-      { name: "type", label: "Tipo", kind: "select", options: feeTypeOptions, span: "half", required: true },
-      { name: "calculationBase", label: "Base de cálculo", kind: "select", options: calculationBaseOptions, span: "half", required: true },
-      { name: "value", label: "Valor", kind: "decimal", span: "half", required: true },
-      { name: "order", label: "Ordem", kind: "integer", span: "half", required: true },
-    ],
+    fields: priceFeeFields,
   },
 });
 
@@ -337,20 +381,18 @@ const priceTableResource = defineResource<PriceTable>({
   ],
   searchKeys: ["id", "name", "carrierService"],
   searchPlaceholder: "Pesquisar tabela de preço...",
-  toolbar: ["export", "filter"],
+  toolbar: ["export"],
   createLabel: "Nova tabela de preço",
   recordPath: (table) => `/tabelas-de-frete/precos/${table.id}`,
   rowLinks: [
     {
       key: "loads",
       label: "Cargas",
-      icon: ScalesIcon,
       to: (table) => `/tabelas-de-frete/precos/${table.id}/cargas`,
     },
     {
       key: "fees",
       label: "Taxas",
-      icon: PercentIcon,
       to: (table) => `/tabelas-de-frete/precos/${table.id}/taxas`,
     },
   ],
@@ -452,12 +494,87 @@ const priceTableRecord = defineRecord<PriceTable>({
   ],
 });
 
+const tableRelationFields: ResourceField<TableRelation>[] = [
+  { name: "customerName", label: "Cliente", kind: "select", required: true, useOptions: useCustomerNameOptions },
+  { name: "carrierService", label: "Transportadora", kind: "select", required: true, useOptions: useCarrierServiceNameOptions },
+  { name: "deadlineTable", label: "Tabela de prazo", kind: "select", required: true, useOptions: useDeadlineTableNameOptions },
+  { name: "priceTable", label: "Tabela de preço", kind: "select", required: true, useOptions: usePriceTableNameOptions },
+  { name: "transferTable", label: "Tabela de transferência", kind: "select", useOptions: usePriceTableNameOptions },
+  { name: "magazordEnvios", label: "Magazord Envios", kind: "switch", group: "Opções" },
+  {
+    name: "intermediationTable",
+    label: "Tabela de intermediação",
+    kind: "select",
+    required: true,
+    useOptions: usePriceTableNameOptions,
+    group: "Opções",
+    visibleWhen: (values) => Boolean(values.magazordEnvios),
+  },
+  { name: "cubage", label: "Cubagem", kind: "switch", group: "Opções" },
+  { name: "validatesDimensions", label: "Validação de dimensão", kind: "switch", group: "Opções" },
+  { name: "validatesWeight", label: "Validação de peso", kind: "switch", group: "Opções" },
+];
+
+const integrationFields: ResourceField<TableRelation>[] = [
+  { name: "freightCalculationType", label: "Tipo de cálculo de frete", kind: "select", options: freightCalculationTypeOptions, span: "half", group: "Cálculo de frete" },
+  { name: "limitsDimensions", label: "Limite de dimensões", kind: "switch", span: "half", group: "Cálculo de frete" },
+  { name: "volumeLimit", label: "Limite de volumes do cálculo de frete", kind: "integer", span: "half", group: "Cálculo de frete" },
+  { name: "splitsVolumes", label: "Fracionar volumes", kind: "switch", span: "half", group: "Cálculo de frete" },
+  { name: "timeout", label: "Tempo de timeout", kind: "integer", suffix: "ms", group: "Cálculo de frete" },
+  { name: "notifiesByEmail", label: "Notificação via e-mail", kind: "switch", group: "Notificações" },
+  {
+    name: "notificationEmail",
+    label: "E-mail",
+    kind: "email",
+    required: true,
+    placeholder: "nome@empresa.com.br",
+    group: "Notificações",
+    visibleWhen: (values) => Boolean(values.notifiesByEmail),
+  },
+  {
+    name: "sendsPdf",
+    label: "Enviar como PDF",
+    kind: "switch",
+    group: "Notificações",
+    visibleWhen: (values) => Boolean(values.notifiesByEmail),
+  },
+  { name: "notifiesByFtp", label: "Notificação FTP", kind: "switch", group: "Notificações" },
+  { name: "carrierApiType", label: "Tipo de transportadora", kind: "select", options: carrierApiTypeOptions, group: "Dados de API" },
+  { name: "trackingLink", label: "Link de rastreio", group: "Dados de API" },
+  { name: "apiToken", label: "Token", group: "Dados de API" },
+];
+
+/** Resolve os ids do cliente e das tabelas escolhidos por nome nos selects. */
+function useTableRelationPrepare() {
+  const customers = useCustomerFetchAllQuery().data;
+  const deadlineTables = useDeadlineTableFetchAllQuery().data;
+  const priceTables = usePriceTableFetchAllQuery().data;
+  return (values: Record<string, unknown>) => {
+    const customer = customers?.find((candidate) => candidate.name === values.customerName);
+    const idOf = (tables: { id: number; name: string }[] | undefined, name: unknown) =>
+      tables?.find((table) => table.name === name)?.id ?? 0;
+    return {
+      ...values,
+      name: customer?.name ?? values.name,
+      customerId: customer?.id ?? values.customerId,
+      customerToken: customer?.token ?? values.customerToken,
+      deadlineTableId: idOf(deadlineTables, values.deadlineTable),
+      priceTableId: idOf(priceTables, values.priceTable),
+      transferTableId: idOf(priceTables, values.transferTable),
+      intermediationTableId: values.magazordEnvios
+        ? idOf(priceTables, values.intermediationTable)
+        : 0,
+      intermediationTable: values.magazordEnvios ? values.intermediationTable : "",
+    };
+  };
+}
+
 const tableRelationResource = defineResource<TableRelation>({
   key: "table-relations",
   title: "Relacionamento de tabelas",
   noun: "relacionamento",
   article: "o",
-  describe: (relation) => `${relation.name} · ${relation.carrierService}`,
+  describe: (relation) => `${relation.customerName} · ${relation.carrierService}`,
   hooks: {
     useFetchAll: useTableRelationFetchAllQuery,
     useCreate: useTableRelationCreateMutation,
@@ -467,50 +584,91 @@ const tableRelationResource = defineResource<TableRelation>({
   statusSwitch: true,
   columns: [
     { key: "id", header: "ID", size: 96 },
-    { key: "name", header: "Nome", filterable: true },
+    { key: "customerId", header: "Cliente ID", size: 110 },
+    { key: "name", header: "Nome" },
     { key: "carrierService", header: "Serviço transportadora" },
+    { key: "priceTableId", header: "ID tabela de preço", size: 160 },
+    { key: "deadlineTableId", header: "ID tabela de prazo", size: 160 },
   ],
-  searchKeys: ["id", "name", "carrierService"],
+  searchKeys: ["customerId", "name", "carrierService"],
   searchPlaceholder: "Pesquisar relacionamento...",
-  toolbar: ["download-csv", "filter"],
+  filters: [
+    { key: "customerId", label: "Cliente ID", kind: "search" },
+    { key: "customerToken", label: "Token cliente", kind: "search" },
+    { key: "name", label: "Nome", kind: "search" },
+    { key: "carrierService", label: "Serviço transportadora", kind: "search" },
+    { key: "priceTableId", label: "ID tabela de preço", kind: "search" },
+    { key: "deadlineTableId", label: "ID tabela de prazo", kind: "search" },
+    { key: "transferTableId", label: "ID tabela de transferência", kind: "search" },
+    { key: "intermediationTableId", label: "ID tabela de intermediação", kind: "search" },
+    { key: "active", label: "Ativo", kind: "select", valueLabels: { true: "Ativo", false: "Inativo" } },
+  ],
+  toolbar: ["download-csv"],
   createLabel: "Novo relacionamento",
   detail: {
-    title: (relation) => `Relacionamento · ${relation.name}`,
-    fields: [
-      { name: "customerName", label: "Cliente", span: "half" },
-      { name: "carrierService", label: "Serviço transportadora", span: "half" },
-      { name: "deadlineTable", label: "Tabela de prazo" },
-      { name: "priceTable", label: "Tabela de preço" },
-      { name: "transferTable", label: "Tabela de transferência" },
-      { name: "calculatesFreight", label: "Cálculo de frete", kind: "switch", span: "half" },
-      { name: "notifiesByEmail", label: "Notificações por e-mail", kind: "switch", span: "half" },
-    ],
+    kind: "drawer",
+    title: (relation) => `Relacionamento · ${relation.customerName}`,
+    fields: tableRelationFields,
   },
+  views: [
+    {
+      key: "integration-view",
+      label: "Visualizar configuração de integração",
+      icon: EyeIcon,
+      kind: "drawer",
+      title: (relation) => `Configuração de integração · ${relation.customerName}`,
+      fields: integrationFields,
+    },
+  ],
+  actionForms: [
+    {
+      key: "integration-edit",
+      label: "Configuração de integração",
+      icon: GearSixIcon,
+      kind: "drawer",
+      title: (relation) => `Configuração de integração · ${relation.customerName}`,
+      fields: integrationFields,
+    },
+  ],
+  menuOrder: ["integration-view", "integration-edit", "detail", "edit"],
   form: {
     kind: "drawer",
     createTitle: "Novo relacionamento",
     editTitle: () => "Editar relacionamento",
+    usePrepare: useTableRelationPrepare,
     defaults: {
       name: "",
-      carrierService: "",
+      customerId: 0,
       customerName: "",
+      customerToken: "",
+      carrierService: "",
+      deadlineTableId: 0,
       deadlineTable: "",
+      priceTableId: 0,
       priceTable: "",
+      transferTableId: 0,
       transferTable: "",
-      calculatesFreight: true,
+      magazordEnvios: false,
+      intermediationTableId: 0,
+      intermediationTable: "",
+      cubage: false,
+      validatesDimensions: false,
+      validatesWeight: false,
+      freightCalculationType: "Peso real",
+      limitsDimensions: false,
+      volumeLimit: 10,
+      splitsVolumes: false,
+      timeout: 3000,
       notifiesByEmail: false,
+      notificationEmail: "",
+      sendsPdf: false,
+      notifiesByFtp: false,
+      carrierApiType: "",
+      trackingLink: "",
+      apiToken: "",
       active: true,
     },
-    fields: [
-      { name: "name", label: "Nome", required: true },
-      { name: "customerName", label: "Cliente", kind: "select", span: "half", required: true, useOptions: useCustomerNameOptions },
-      { name: "carrierService", label: "Serviço transportadora", kind: "select", span: "half", required: true, useOptions: useCarrierServiceNameOptions },
-      { name: "deadlineTable", label: "Tabela de prazo", kind: "select", required: true, useOptions: useDeadlineTableNameOptions },
-      { name: "priceTable", label: "Tabela de preço", kind: "select", required: true, useOptions: usePriceTableNameOptions },
-      { name: "transferTable", label: "Tabela de transferência", kind: "select", useOptions: usePriceTableNameOptions },
-      { name: "calculatesFreight", label: "Cálculo de frete", kind: "switch", span: "half" },
-      { name: "notifiesByEmail", label: "Notificações por e-mail", kind: "switch", span: "half" },
-    ],
+    fields: tableRelationFields,
   },
 });
 

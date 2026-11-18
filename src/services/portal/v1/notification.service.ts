@@ -8,6 +8,7 @@ type Notification = {
   key: string;
   issuedAt: string;
   carrierService: string;
+  platform: string;
   status: string;
 };
 

@@ -4,6 +4,8 @@ type PriceLoad = {
   id: number;
   priceTableId: number;
   tariffAcronym: string;
+  type: string;
+  calculationBase: string;
   weightLimit: number;
   value: number;
 };

@@ -3,11 +3,16 @@ import { api } from "./api";
 type ReconciliationCte = {
   id: number;
   reconciliationId: number;
-  issuedAt: string;
+  cteId: number;
+  number: string;
+  series: string;
+  key: string;
+  dueDate: string;
+  customerName: string;
   cteValue: number;
-  calculatedFreight: number;
-  difference: number;
-  status: string;
+  intermediationValue: number;
+  freightValue: number;
+  reconciled: boolean;
 };
 
 type ReconciliationCteFetchAllRequest = { filters?: Partial<ReconciliationCte> };

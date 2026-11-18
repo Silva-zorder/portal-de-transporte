@@ -27,9 +27,11 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from "@hubble-ds/components/ui/sidebar";
+import { Switch } from "@hubble-ds/components/ui/switch";
 import { toast } from "@hubble-ds/components/ui/toast";
-import { CaretRightIcon, SignOutIcon } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { useLocalStorage } from "@hubble-ds/hooks/use-local-storage";
+import { CaretRightIcon, MoonIcon, SignOutIcon } from "@phosphor-icons/react";
+import { type ReactNode, useEffect } from "react";
 import { Link, type RouteObject, useLocation } from "react-router";
 import { type NavigationGroup, navigationGroups } from "@/lib/navigation";
 import { Workarea } from "./workarea";
@@ -80,6 +82,81 @@ function AppSidebarGroup({
   );
 }
 
+/** Usuário da sessão (mock até a integração com o Cognito). */
+const sessionUser = { name: "Edgar Ferreira", initials: "EF", role: "Master" };
+
+/** O tema escuro do Hubble é a classe `dark` no `<html>`; a escolha fica salva no navegador. */
+function useDarkMode() {
+  const [isDark, setIsDark] = useLocalStorage("portal-dark-mode", false);
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [isDark]);
+  return [isDark, setIsDark] as const;
+}
+
+function AppSidebarFooter() {
+  const [isDark, setIsDark] = useDarkMode();
+
+  return (
+    <SidebarFooter>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div
+            className="flex items-center gap-xs p-3xs"
+            title={`${sessionUser.name} · ${sessionUser.role}`}
+            data-testid="sidebar-user"
+          >
+            <Avatar size="small">
+              <AvatarFallback>{sessionUser.initials}</AvatarFallback>
+            </Avatar>
+            <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+              <span
+                className="truncate text-sm font-medium text-text"
+                data-testid="sidebar-user-name-text"
+              >
+                {sessionUser.name}
+              </span>
+              <span
+                className="truncate typo-caption-1 text-muted-text"
+                data-testid="sidebar-user-role-text"
+              >
+                {sessionUser.role}
+              </span>
+            </span>
+          </div>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton asChild tooltip="Modo escuro">
+            <label htmlFor="sidebar-dark-mode-switch" data-testid="sidebar-dark-mode-label">
+              <MoonIcon />
+              <span>Modo escuro</span>
+              <Switch
+                id="sidebar-dark-mode-switch"
+                className="ml-auto"
+                checked={isDark}
+                onCheckedChange={setIsDark}
+                data-testid="sidebar-dark-mode-switch"
+              />
+            </label>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            onClick={() =>
+              toast.info("Sair encerra a sessão no portal em produção.")
+            }
+            tooltip="Sair"
+            data-testid="sidebar-sign-out-button"
+          >
+            <SignOutIcon />
+            <span>Sair</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarFooter>
+  );
+}
+
 function AppShell({
   routes,
   home,
@@ -99,13 +176,8 @@ function AppShell({
               <AvatarImage src={magazordIcon} alt="Magazord" />
               <AvatarFallback>MZ</AvatarFallback>
             </Avatar>
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium text-text">
-                Portal de transportes
-              </span>
-              <span className="truncate typo-caption-1 text-muted-text">
-                Edgar Ferreira
-              </span>
+            <span className="truncate text-sm font-medium text-text">
+              Portal de transportes
             </span>
           </Link>
           <SidebarTrigger
@@ -130,22 +202,7 @@ function AppShell({
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() =>
-                  toast.info("Sair encerra a sessão no portal em produção.")
-                }
-                tooltip="Sair"
-                data-testid="sidebar-sign-out-button"
-              >
-                <SignOutIcon />
-                <span>Sair</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
+        <AppSidebarFooter />
       </Sidebar>
       <SidebarInset className="h-svh min-w-0 overflow-hidden">
         <Workarea routes={routes} home={home} />

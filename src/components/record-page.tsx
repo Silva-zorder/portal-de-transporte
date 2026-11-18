@@ -34,6 +34,7 @@ import { PageHeader } from "./page-header";
 import { ResourceReadOnlyFields } from "./resource-fields";
 import {
   ResourceFormOverlay,
+  ResourcePageActions,
   useResourceFormController,
 } from "./resource-form";
 import { ResourceList } from "./resource-list";
@@ -129,15 +130,18 @@ function RecordChildTab({
   return (
     <>
       {renderHeader(
-        tab.definition.createLabel && (
-          <Button
-            onClick={controller.openCreate}
-            data-testid={`${tab.definition.key}-create-button`}
-          >
-            <CreateIcon />
-            {tab.definition.createLabel}
-          </Button>
-        ),
+        <>
+          <ResourcePageActions definition={tab.definition} controller={controller} />
+          {tab.definition.createLabel && (
+            <Button
+              onClick={controller.openCreate}
+              data-testid={`${tab.definition.key}-create-button`}
+            >
+              <CreateIcon />
+              {tab.definition.createLabel}
+            </Button>
+          )}
+        </>,
       )}
       <ResourceList
         definition={tab.definition}

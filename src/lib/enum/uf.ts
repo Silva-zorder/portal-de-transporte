@@ -1,0 +1,75 @@
+const EnumUf = {
+  AC: "AC",
+  AL: "AL",
+  AP: "AP",
+  AM: "AM",
+  BA: "BA",
+  CE: "CE",
+  DF: "DF",
+  ES: "ES",
+  GO: "GO",
+  MA: "MA",
+  MT: "MT",
+  MS: "MS",
+  MG: "MG",
+  PA: "PA",
+  PB: "PB",
+  PR: "PR",
+  PE: "PE",
+  PI: "PI",
+  RJ: "RJ",
+  RN: "RN",
+  RS: "RS",
+  RO: "RO",
+  RR: "RR",
+  SC: "SC",
+  SP: "SP",
+  SE: "SE",
+  TO: "TO",
+} as const;
+
+const EnumUfCaption = {
+  [EnumUf.AC]: "AC",
+  [EnumUf.AL]: "AL",
+  [EnumUf.AP]: "AP",
+  [EnumUf.AM]: "AM",
+  [EnumUf.BA]: "BA",
+  [EnumUf.CE]: "CE",
+  [EnumUf.DF]: "DF",
+  [EnumUf.ES]: "ES",
+  [EnumUf.GO]: "GO",
+  [EnumUf.MA]: "MA",
+  [EnumUf.MT]: "MT",
+  [EnumUf.MS]: "MS",
+  [EnumUf.MG]: "MG",
+  [EnumUf.PA]: "PA",
+  [EnumUf.PB]: "PB",
+  [EnumUf.PR]: "PR",
+  [EnumUf.PE]: "PE",
+  [EnumUf.PI]: "PI",
+  [EnumUf.RJ]: "RJ",
+  [EnumUf.RN]: "RN",
+  [EnumUf.RS]: "RS",
+  [EnumUf.RO]: "RO",
+  [EnumUf.RR]: "RR",
+  [EnumUf.SC]: "SC",
+  [EnumUf.SP]: "SP",
+  [EnumUf.SE]: "SE",
+  [EnumUf.TO]: "TO",
+} as const satisfies Record<EnumUfValue, string>;
+
+const EnumUfOptions = Object.values(EnumUf).map((value) => ({
+  value,
+  caption: EnumUfCaption[value],
+}));
+
+type EnumUfKey = keyof typeof EnumUf;
+type EnumUfValue = (typeof EnumUf)[EnumUfKey];
+
+export {
+  EnumUf,
+  EnumUfCaption,
+  type EnumUfKey,
+  EnumUfOptions,
+  type EnumUfValue,
+};

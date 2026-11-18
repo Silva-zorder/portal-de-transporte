@@ -12,9 +12,13 @@ import { findNavigationItem } from "@/lib/navigation";
 import type { AnyRecordDefinition } from "@/lib/resource/record";
 import type { AnyResourceDefinition } from "@/lib/resource/types";
 import { DashboardPage } from "@/pages/dashboard-page";
-import { FreightCalculatorPage } from "@/pages/freight-calculator-page";
 import { MaintenancePage } from "@/pages/maintenance-page";
-import { profileResource, userRecord, userResource } from "@/resources/access.resource";
+import {
+  profileRecord,
+  profileResource,
+  userRecord,
+  userResource,
+} from "@/resources/access.resource";
 import {
   deadlineTableRecord,
   deadlineTableResource,
@@ -40,7 +44,6 @@ import {
   customerGroupResource,
   customerMarketplaceRecord,
   customerMarketplaceResource,
-  customerRecord,
   customerResource,
 } from "@/resources/registrations.resource";
 
@@ -58,19 +61,19 @@ const listRoutes: { path: string; definition: AnyResourceDefinition }[] = [
   { path: "magazord-envios/documentos-de-cobranca", definition: billingDocumentResource },
   { path: "monitoramento/notificacoes", definition: notificationResource },
   { path: "monitoramento/sincronizacao-mongo-db", definition: mongoSyncResource },
-  { path: "monitoramento/logs", definition: logResource },
+  { path: "monitoramento/historico-de-registros", definition: logResource },
   { path: "acesso/usuarios", definition: userResource },
   { path: "acesso/perfis", definition: profileResource },
 ];
 
 const recordRoutes: AnyRecordDefinition[] = [
-  customerRecord,
   customerMarketplaceRecord,
   customerGroupRecord,
   deadlineTableRecord,
   priceTableRecord,
   reconciliationRecord,
   userRecord,
+  profileRecord,
 ];
 
 const navigationIcon = (path: string) =>
@@ -106,15 +109,6 @@ const workareaRoutes: RouteObject[] = [
       key: "/ferramentas/manutencao",
       label: "Manutenção",
       icon: navigationIcon("/ferramentas/manutencao"),
-    })),
-  },
-  {
-    path: "ferramentas/calculadora-de-frete",
-    element: <FreightCalculatorPage />,
-    handle: workTab(() => ({
-      key: "/ferramentas/calculadora-de-frete",
-      label: "Calculadora de frete",
-      icon: navigationIcon("/ferramentas/calculadora-de-frete"),
     })),
   },
   { path: "*", element: <Navigate to="/" replace /> },

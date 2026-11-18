@@ -1,6 +1,5 @@
 import {
   BellIcon,
-  CalculatorIcon,
   CalendarBlankIcon,
   ClockCounterClockwiseIcon,
   DatabaseIcon,
@@ -72,7 +71,7 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       { key: "notifications", label: "Notificações", path: "/monitoramento/notificacoes", icon: BellIcon },
       { key: "mongo-syncs", label: "Sincronização Mongo DB", path: "/monitoramento/sincronizacao-mongo-db", icon: DatabaseIcon },
-      { key: "logs", label: "Logs", path: "/monitoramento/logs", icon: ClockCounterClockwiseIcon },
+      { key: "logs", label: "Histórico de registros", path: "/monitoramento/historico-de-registros", icon: ClockCounterClockwiseIcon },
     ],
   },
   {
@@ -90,7 +89,6 @@ const navigationGroups: NavigationGroup[] = [
     icon: WrenchIcon,
     items: [
       { key: "maintenance", label: "Manutenção", path: "/ferramentas/manutencao", icon: WrenchIcon },
-      { key: "freight-calculator", label: "Calculadora de frete", path: "/ferramentas/calculadora-de-frete", icon: CalculatorIcon },
     ],
   },
 ];

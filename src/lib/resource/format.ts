@@ -29,7 +29,12 @@ function formatStatus(active: unknown, article: "a" | "o" = "o") {
   return active ? `Ativ${article}` : `Inativ${article}`;
 }
 
-function formatColumnValue(value: unknown, kind: ResourceColumnKind = "text") {
+function formatColumnValue(
+  value: unknown,
+  kind: ResourceColumnKind = "text",
+  valueLabels?: Record<string, string>,
+) {
+  if (valueLabels && String(value) in valueLabels) return valueLabels[String(value)];
   if (value === null || value === undefined || value === "") return "—";
   if (kind === "money") return maskMonetary(Number(value));
   if (kind === "decimal") return formatDecimal(Number(value));
@@ -47,6 +52,7 @@ function formatFieldValue(
   if (kind === "switch") return value ? "Sim" : "Não";
   if (kind === "status") return formatStatus(value, "o");
   if (kind === "status-feminine") return formatStatus(value, "a");
+  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "—";
   if (value === null || value === undefined || value === "") return "—";
   if (kind === "money") return maskMonetary(Number(value));
   if (kind === "decimal") {
@@ -97,14 +103,33 @@ function downloadCsv(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+function formatDate(date: Date) {
+  return date.toLocaleDateString("pt-BR");
+}
+
+function formatMonth(date: Date) {
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+}
+
+/** Lê `dd/mm/aaaa` (o formato dos dados do portal). */
+function parseDate(value: unknown) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value ?? ""));
+  if (!match) return undefined;
+  return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+}
+
 export {
   downloadCsv,
   formatColumnValue,
+  formatDate,
   formatDecimal,
   formatFieldValue,
   formatInteger,
+  formatMonth,
   formatStatus,
   matchesSearch,
+  normalizeSearch,
+  parseDate,
   parseDecimal,
   toCsv,
 };

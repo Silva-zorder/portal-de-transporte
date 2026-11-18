@@ -1,6 +1,10 @@
-import { UserCirclePlusIcon } from "@phosphor-icons/react";
+import { confirmAlert } from "@hubble-ds/components/callables/confirm-alert-callable";
+import { toast } from "@hubble-ds/components/ui/toast";
+import { KeyIcon, UserCirclePlusIcon } from "@phosphor-icons/react";
 import { useProfileCreateMutation } from "@/hooks/use-profile-create-mutation";
 import { useProfileFetchAllQuery } from "@/hooks/use-profile-fetch-all-query";
+import { useProfileFindByIdQuery } from "@/hooks/use-profile-find-by-id-query";
+import { useProfileRouteFetchAllQuery } from "@/hooks/use-profile-route-fetch-all-query";
 import { useProfileRemoveMutation } from "@/hooks/use-profile-remove-mutation";
 import { useProfileUpdateMutation } from "@/hooks/use-profile-update-mutation";
 import { useUserCreateMutation } from "@/hooks/use-user-create-mutation";
@@ -20,6 +24,7 @@ import { formatInteger, formatStatus } from "@/lib/resource/format";
 import { defineRecord } from "@/lib/resource/record";
 import { defineResource } from "@/lib/resource/types";
 import type { Profile } from "@/services/portal/v1/profile.service";
+import type { ProfileRoute } from "@/services/portal/v1/profile-route.service";
 import type { User } from "@/services/portal/v1/user.service";
 import type { UserGroup } from "@/services/portal/v1/user-group.service";
 import type { UserProfile } from "@/services/portal/v1/user-profile.service";
@@ -53,7 +58,7 @@ const userGroupResource = defineResource<UserGroup>({
   ],
   searchKeys: ["id", "description"],
   searchPlaceholder: "Pesquisar grupo...",
-  toolbar: ["export", "import", "filter"],
+  toolbar: ["export", "import"],
   createLabel: "Adicionar grupo",
   form: {
     kind: "dialog",
@@ -85,7 +90,7 @@ const userProfileResource = defineResource<UserProfile>({
   ],
   searchKeys: ["id", "description"],
   searchPlaceholder: "Pesquisar perfil...",
-  toolbar: ["export", "import", "filter"],
+  toolbar: ["export", "import"],
   createLabel: "Adicionar perfil",
   form: {
     kind: "dialog",
@@ -121,10 +126,31 @@ const userResource = defineResource<User>({
   ],
   searchKeys: ["id", "name", "email"],
   searchPlaceholder: "Pesquisar usuário...",
-  toolbar: ["refresh", "filter"],
+  toolbar: ["refresh"],
   createLabel: "Novo usuário",
   createIcon: UserCirclePlusIcon,
   recordPath: (user) => `/acesso/usuarios/${user.id}`,
+  rowLinks: [
+    { key: "groups", label: "Grupos", to: (user) => `/acesso/usuarios/${user.id}/grupos` },
+    { key: "profiles", label: "Perfis", to: (user) => `/acesso/usuarios/${user.id}/perfis` },
+  ],
+  rowActions: [
+    {
+      key: "reset-login",
+      label: "Redefinir login",
+      icon: KeyIcon,
+      run: async (user) => {
+        const confirmed = await confirmAlert({
+          title: "Redefinir login?",
+          description: `${user.name} receberá em ${user.email} um link para cadastrar uma nova senha.`,
+          actionText: "Redefinir login",
+          ActionProps: { "data-testid": "users-reset-login-confirm-button" },
+          PopupProps: { "data-testid": "users-reset-login-alert-dialog" },
+        });
+        if (confirmed) toast.success(`Link de redefinição enviado para ${user.email}.`);
+      },
+    },
+  ],
   form: {
     kind: "drawer",
     createTitle: "Novo usuário",
@@ -201,8 +227,12 @@ const profileResource = defineResource<Profile>({
   ],
   searchKeys: ["id", "name"],
   searchPlaceholder: "Pesquisar perfil...",
-  toolbar: ["refresh", "filter"],
+  toolbar: ["refresh"],
   createLabel: "Novo perfil",
+  recordPath: (profile) => `/acesso/perfis/${profile.id}`,
+  rowLinks: [
+    { key: "routes", label: "Rotas", to: (profile) => `/acesso/perfis/${profile.id}/rotas` },
+  ],
   form: {
     kind: "drawer",
     createTitle: "Novo perfil",
@@ -215,4 +245,60 @@ const profileResource = defineResource<Profile>({
   },
 });
 
-export { profileResource, userRecord, userResource };
+const profileRouteResource = defineResource<ProfileRoute>({
+  key: "profile-routes",
+  title: "Rotas",
+  noun: "rota",
+  article: "a",
+  describe: (route) => `${route.method} ${route.route}`,
+  hooks: { useFetchAll: useProfileRouteFetchAllQuery },
+  columns: [
+    { key: "id", header: "ID", size: 96 },
+    {
+      key: "method",
+      header: "Método",
+      kind: "badge",
+      size: 120,
+      filterable: true,
+      badgeVariants: { GET: "success", POST: "warning", DELETE: "destructive" },
+    },
+    { key: "route", header: "Rota" },
+  ],
+  searchKeys: ["id", "route"],
+  searchPlaceholder: "Pesquisar rota...",
+  toolbar: [],
+});
+
+const profileRecord = defineRecord<Profile>({
+  definition: profileResource,
+  listPath: "/acesso/perfis",
+  useFindById: useProfileFindByIdQuery,
+  title: (profile) => profile.name,
+  status: (profile) => formatStatus(profile.active),
+  editLabel: "Editar perfil",
+  cards: [
+    {
+      key: "identification",
+      title: "Identificação",
+      description: "Dados gerais do perfil",
+      span: "full",
+      fields: [
+        { name: "name", label: "Nome", span: "half" },
+        { name: "platform", label: "Plataforma", span: "half" },
+        { name: "active", label: "Status", kind: "status", span: "half" },
+      ],
+    },
+  ],
+  tabs: [
+    {
+      key: "rotas",
+      label: "Rotas",
+      definition: profileRouteResource,
+      parentKey: "profileId",
+      summary: (count) => `${formatInteger(count)} rotas liberadas`,
+      linkLabel: "Ver rotas",
+    },
+  ],
+});
+
+export { profileRecord, profileResource, userRecord, userResource };

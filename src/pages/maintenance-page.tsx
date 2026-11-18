@@ -43,7 +43,10 @@ import {
 } from "@phosphor-icons/react";
 import { type ComponentProps, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { DatePickerField } from "@/components/date-picker-field";
+import {
+  type DateRangeValue,
+  DateRangePickerField,
+} from "@/components/date-picker-field";
 import { PageHeader } from "@/components/page-header";
 import { EnumPlatformOptions } from "@/lib/enum/platform";
 import { downloadCsv } from "@/lib/resource/format";
@@ -73,7 +76,6 @@ const tableUpdates: MaintenanceTableUpdate[] = [
   { key: "deadline-adjustment", title: "Adicionar/Reduzir prazo", icon: PlusMinusIcon, source: "deadline" },
 ];
 
-const reportPeriods = ["Últimos 7 dias", "Últimos 30 dias", "Últimos 90 dias"];
 const reportFormats = ["CSV", "XLSX"];
 const activationTypes = ["Tabelas de preço", "Tabelas de prazo", "Serviços"];
 
@@ -326,25 +328,23 @@ function SynchronizationsTab() {
         ))}
       </div>
       <div className="grid shrink-0 grid-cols-auto-fit-96 items-start gap-md">
-        <OccurrencesCard />
         <DneCard />
+        <OccurrencesCard />
       </div>
     </div>
   );
 }
 
 function NotificationErrorsCard() {
-  const [startDate, setStartDate] = useState<Date | undefined>(
-    new Date(2026, 10, 1),
-  );
-  const [endDate, setEndDate] = useState<Date | undefined>(
-    new Date(2026, 10, 10),
-  );
+  const [period, setPeriod] = useState<DateRangeValue | undefined>({
+    from: new Date(2026, 10, 1),
+    to: new Date(2026, 10, 10),
+  });
   const [platform, setPlatform] = useState(ALL_VALUES);
   const [format, setFormat] = useState("CSV");
 
   const handleGenerate = () => {
-    if (!startDate || !endDate || startDate > endDate) {
+    if (!period?.from || !period.to) {
       toast.error("Informe um período válido.");
       return;
     }
@@ -364,19 +364,13 @@ function NotificationErrorsCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-md">
-        <DatePickerField
-          id="notification-errors-start-date"
-          label="Data inicial"
-          value={startDate}
-          onValueChange={setStartDate}
-          data-testid="maintenance-notification-errors-start-date-button"
-        />
-        <DatePickerField
-          id="notification-errors-end-date"
-          label="Data final"
-          value={endDate}
-          onValueChange={setEndDate}
-          data-testid="maintenance-notification-errors-end-date-button"
+        <DateRangePickerField
+          id="notification-errors-period"
+          label="Período"
+          className="col-span-2"
+          value={period}
+          onValueChange={setPeriod}
+          data-testid="maintenance-notification-errors-period-button"
         />
         <MaintenanceSelectField
           id="notification-errors-platform"
@@ -416,10 +410,17 @@ function NotificationErrorsCard() {
 function ActivationCard() {
   const customers = useCustomerNameOptions();
   const [customer, setCustomer] = useState(ALL_VALUES);
-  const [period, setPeriod] = useState("Últimos 30 dias");
+  const [period, setPeriod] = useState<DateRangeValue | undefined>({
+    from: new Date(2026, 9, 18),
+    to: new Date(2026, 10, 17),
+  });
   const [type, setType] = useState("Tabelas de preço");
 
   const handleExport = () => {
+    if (!period?.from || !period.to) {
+      toast.error("Informe um período válido.");
+      return;
+    }
     downloadCsv(
       "ativacao-desativacao.csv",
       '"Data";"Cliente";"Tipo";"Registro";"Ação";"Usuário"',
@@ -447,13 +448,12 @@ function ActivationCard() {
           ]}
           data-testid="maintenance-activation-customer-select"
         />
-        <MaintenanceSelectField
+        <DateRangePickerField
           id="activation-period"
           label="Período"
           value={period}
           onValueChange={setPeriod}
-          options={toOptions(reportPeriods)}
-          data-testid="maintenance-activation-period-select"
+          data-testid="maintenance-activation-period-button"
         />
         <MaintenanceSelectField
           id="activation-type"
@@ -466,7 +466,6 @@ function ActivationCard() {
       </CardContent>
       <CardFooter>
         <Button
-          variant="outline"
           onClick={handleExport}
           data-testid="maintenance-activation-export-button"
         >
