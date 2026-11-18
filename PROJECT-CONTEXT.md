@@ -336,9 +336,11 @@ App: `portal-de-transporte/`. Run it with `npm run dev` (http://localhost:5183).
 
 ### How the DS is consumed
 
-The DS source was **not modified**. Its packages were built and packed into
-`hubble-ds-main/hubble-ds-main/.local-packs/*.tgz` and installed with `npm install --save-exact` (`file:`
-dependencies in `package.json`). `src/assets/app.css` only imports `tailwindcss`, the DS `theme.css`,
+The DS source was **not modified**. Its packages are built and packed in the DS repo
+(`hubble-ds-develop/hubble-ds-develop/.local-packs/*.tgz`) and the tarballs are **committed in this repo under
+`vendor/hubble-ds/`** (2026-11-18), so CI/Vercel can install them; `package.json` points there with `file:`
+dependencies. The requester accepted that this public repo carries the DS build. To update the DS: rebuild the
+tarballs, copy them into `vendor/hubble-ds/`, update the versions in `package.json` and run `npm install`. `src/assets/app.css` only imports `tailwindcss`, the DS `theme.css`,
 `components.css` and `fonts.css`; there is no other CSS in the project.
 
 Rebuilding the tarballs on Windows: `npm run local-pack` fails (§11.1). From the DS repo, run instead:
@@ -350,7 +352,7 @@ for p in hooks utils components styles assets; do npm pack --workspace packages/
 ```
 
 The first line prints an `ENOENT npx` error per package after the JS is written; the `tsc` call that follows
-completes the step. Then delete `node_modules/@hubble-ds` in the app and reinstall.
+completes the step. Then copy the tarballs into `vendor/hubble-ds/`, delete `node_modules/@hubble-ds` in the app and reinstall.
 
 ### Structure
 

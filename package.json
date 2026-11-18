@@ -10,11 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@hubble-ds/assets": "file:../hubble-ds-develop/hubble-ds-develop/.local-packs/hubble-ds-assets-0.1.0.tgz",
-    "@hubble-ds/components": "file:../hubble-ds-develop/hubble-ds-develop/.local-packs/hubble-ds-components-0.1.3.tgz",
-    "@hubble-ds/hooks": "file:../hubble-ds-develop/hubble-ds-develop/.local-packs/hubble-ds-hooks-0.1.1.tgz",
-    "@hubble-ds/styles": "file:../hubble-ds-develop/hubble-ds-develop/.local-packs/hubble-ds-styles-0.1.2.tgz",
-    "@hubble-ds/utils": "file:../hubble-ds-develop/hubble-ds-develop/.local-packs/hubble-ds-utils-0.1.1.tgz",
+    "@hubble-ds/assets": "file:vendor/hubble-ds/hubble-ds-assets-0.1.0.tgz",
+    "@hubble-ds/components": "file:vendor/hubble-ds/hubble-ds-components-0.1.3.tgz",
+    "@hubble-ds/hooks": "file:vendor/hubble-ds/hubble-ds-hooks-0.1.1.tgz",
+    "@hubble-ds/styles": "file:vendor/hubble-ds/hubble-ds-styles-0.1.2.tgz",
+    "@hubble-ds/utils": "file:vendor/hubble-ds/hubble-ds-utils-0.1.1.tgz",
     "@phosphor-icons/react": "2.1.10",
     "@tanstack/react-query": "5.107.1",
     "@tanstack/react-table": "9.2.4",
