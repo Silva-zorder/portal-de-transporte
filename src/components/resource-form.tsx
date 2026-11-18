@@ -17,10 +17,11 @@ import {
   DrawerTitle,
 } from "@hubble-ds/components/ui/drawer";
 import { IconButton } from "@hubble-ds/components/ui/icon-button";
+import { Separator } from "@hubble-ds/components/ui/separator";
 import { toast } from "@hubble-ds/components/ui/toast";
-import { EyeIcon, XIcon } from "@phosphor-icons/react";
+import { DownloadSimpleIcon, EyeIcon, UploadSimpleIcon, XIcon } from "@phosphor-icons/react";
 import type { OnChangeFn, RowSelectionState } from "@tanstack/react-table";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, Fragment, type ReactNode, type RefObject, useRef, useState } from "react";
 import type {
   AnyResourceDefinition,
   ResourceField,
@@ -36,6 +37,8 @@ import {
   ResourceReadOnlyFields,
   toDraft,
 } from "./resource-fields";
+import { ResourceImportDialog } from "./resource-import-dialog";
+import { downloadCsv, toCsv } from "@/lib/resource/format";
 
 type OverlayKind = "drawer" | "dialog";
 type AnyResourceField = ResourceField<ResourceRecord>;
@@ -57,6 +60,8 @@ type ResourceFormController = {
   /** Linhas marcadas na coluna de seleção, por id. */
   selection: RowSelectionState;
   setSelection: OnChangeFn<RowSelectionState>;
+  /** Registros que a listagem mostra agora (busca e filtros aplicados), para as ações da página. */
+  visibleRecords: RefObject<ResourceRecord[]>;
 };
 
 const DETAIL_VIEW_KEY = "detail";
@@ -64,7 +69,9 @@ const DETAIL_VIEW_KEY = "detail";
 function useResourceFormController(): ResourceFormController {
   const [state, setState] = useState<ResourceFormState>({ mode: "closed" });
   const [selection, setSelection] = useState<RowSelectionState>({});
+  const visibleRecords = useRef<ResourceRecord[]>([]);
   return {
+    visibleRecords,
     state,
     selection,
     setSelection,
@@ -349,20 +356,39 @@ function ResourceViewOverlays({
         title={isOpen ? view.title(state.record) : ""}
         context={context}
       >
-        {isOpen && (
-          <ResourceReadOnlyFields
-            className={view.kind === "drawer" ? "flex-1 content-start overflow-auto p-md" : "py-md"}
-            fields={view.fields}
-            record={state.record}
-            context={context}
-          />
-        )}
+        {isOpen &&
+          (view.content ? (
+            <view.content record={state.record} context={context} />
+          ) : (
+            <ResourceReadOnlyFields
+              className={view.kind === "drawer" ? "flex-1 content-start overflow-auto p-md" : "py-md"}
+              fields={view.fields}
+              record={state.record}
+              context={context}
+            />
+          ))}
         <ResourceOverlayFooter kind={view.kind}>
           <ResourceOverlayDismiss kind={view.kind}>
             <Button variant="outline" data-testid={`${context}-dismiss-button`}>
               Fechar
             </Button>
           </ResourceOverlayDismiss>
+          {isOpen &&
+            (view.footerActions ?? []).map((key, index) => {
+              const action = definition.rowActions?.find((rowAction) => rowAction.key === key);
+              if (!action) return null;
+              return (
+                <Button
+                  key={key}
+                  variant={index === 0 ? "primary" : "secondary"}
+                  onClick={() => action.run(state.record)}
+                  data-testid={`${context}-${key}-button`}
+                >
+                  <action.icon />
+                  {action.label}
+                </Button>
+              );
+            })}
         </ResourceOverlayFooter>
       </ResourceOverlay>
     );
@@ -417,47 +443,110 @@ function ResourceActionFormOverlays({
 }
 
 /** Botões de ação do cabeçalho da página e os overlays que eles abrem. */
+/** Grupo das ações de importar/exportar, separado das demais por um separador vertical. */
+const TRANSFER_GROUP = "transfer";
+
 function ResourcePageActions({
   definition,
   controller,
+  trailingAction = false,
 }: Readonly<{
   definition: AnyResourceDefinition;
-  /** Fonte da seleção das ações com `requiresSelection`. */
+  /** Fonte da seleção das ações com `requiresSelection` e dos registros visíveis do Exportar. */
   controller?: ResourceFormController;
+  /** Há um botão logo depois (ex.: "Novo …"): separa-o de um grupo que termine antes dele. */
+  trailingAction?: boolean;
 }>) {
   const [openKey, setOpenKey] = useState<string>();
-  const actions = definition.pageActions ?? [];
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const toolbarActions: ResourcePageAction<ResourceRecord>[] = [
+    ...(definition.toolbar.includes("import")
+      ? [
+          {
+            key: "import",
+            label: "Importar",
+            icon: UploadSimpleIcon,
+            group: TRANSFER_GROUP,
+            run: () => setIsImportOpen(true),
+          },
+        ]
+      : []),
+    ...(definition.toolbar.includes("export")
+      ? [
+          {
+            key: "export",
+            label: "Exportar",
+            icon: DownloadSimpleIcon,
+            group: TRANSFER_GROUP,
+            run: (_selected: ResourceRecord[], visible: ResourceRecord[]) => {
+              downloadCsv(
+                `${definition.key}.csv`,
+                toCsv(visible, [{ key: "id", header: "ID" }, ...definition.columns]),
+              );
+              toast.success(
+                visible.length === 1
+                  ? "1 registro exportado em CSV."
+                  : `${visible.length} registros exportados em CSV.`,
+              );
+            },
+          },
+        ]
+      : []),
+  ];
+  const actions = [...toolbarActions, ...(definition.pageActions ?? [])];
   const close = () => setOpenKey(undefined);
   const context = `${definition.key}-page`;
   const records = definition.hooks.useFetchAll().data;
   const selection = controller?.selection ?? {};
   const selectedRecords = (records ?? []).filter((record) => selection[String(record.id)]);
 
+  const sortedActions = [...actions].sort(
+    (one, other) => Number(Boolean(one.primary)) - Number(Boolean(other.primary)),
+  );
+
   const handleClick = (action: ResourcePageAction<ResourceRecord>) => {
     if (action.form || action.summary) {
       setOpenKey(action.key);
       return;
     }
-    action.run?.(selectedRecords);
+    action.run?.(selectedRecords, controller?.visibleRecords.current ?? records ?? []);
     if (action.requiresSelection) controller?.setSelection({});
   };
 
   return (
     <>
-      {[...actions]
-        .sort((one, other) => Number(Boolean(one.primary)) - Number(Boolean(other.primary)))
-        .map((action) => (
-          <Button
-            key={action.key}
-            variant={action.primary ? "primary" : "secondary"}
-            disabled={action.requiresSelection && selectedRecords.length === 0}
-            onClick={() => handleClick(action)}
-            data-testid={`${context}-${action.key}-button`}
-          >
-            {action.icon && <action.icon />}
-            {action.label}
-          </Button>
+      {sortedActions.map((action, index, sorted) => (
+          <Fragment key={action.key}>
+            {index > 0 && sorted[index - 1].group !== action.group && (
+              <Separator
+                orientation="vertical"
+                className="self-stretch data-[orientation=vertical]:h-auto"
+                data-testid={`${context}-${action.key}-separator`}
+              />
+            )}
+            <Button
+              variant={action.primary ? "primary" : "secondary"}
+              disabled={action.requiresSelection && selectedRecords.length === 0}
+              onClick={() => handleClick(action)}
+              data-testid={`${context}-${action.key}-button`}
+            >
+              {action.icon && <action.icon />}
+              {action.label}
+            </Button>
+          </Fragment>
         ))}
+      {trailingAction && sortedActions.at(-1)?.group !== undefined && (
+        <Separator
+          orientation="vertical"
+          className="self-stretch data-[orientation=vertical]:h-auto"
+          data-testid={`${context}-trailing-separator`}
+        />
+      )}
+      <ResourceImportDialog
+        definition={definition}
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+      />
       {actions.map((action) => {
         const isOpen = openKey === action.key;
         const actionContext = `${context}-${action.key}`;

@@ -3,6 +3,7 @@ import {
   ArrowsClockwiseIcon,
   ClockCounterClockwiseIcon,
   DownloadSimpleIcon,
+  EyeIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react";
 import { useBillingDocumentCreateMutation } from "@/hooks/use-billing-document-create-mutation";
@@ -17,9 +18,9 @@ import { useReconciliationFindByIdQuery } from "@/hooks/use-reconciliation-find-
 import { useReconciliationRemoveMutation } from "@/hooks/use-reconciliation-remove-mutation";
 import { EnumBillingDocumentStatusOptions } from "@/lib/enum/billing-document-status";
 import { EnumBillingDocumentTypeOptions } from "@/lib/enum/billing-document-type";
-import { formatInteger } from "@/lib/resource/format";
+import { downloadCsv, formatInteger, toCsv } from "@/lib/resource/format";
 import { defineRecord } from "@/lib/resource/record";
-import { defineResource } from "@/lib/resource/types";
+import { defineResource, type ResourceRecord } from "@/lib/resource/types";
 import type { BillingDocument } from "@/services/portal/v1/billing-document.service";
 import type { Cte } from "@/services/portal/v1/cte.service";
 import type { Reconciliation } from "@/services/portal/v1/reconciliation.service";
@@ -39,14 +40,14 @@ const cteResource = defineResource<Cte>({
   describe: (cte) => `CTE ${cte.number}`,
   hooks: { useFetchAll: useCteFetchAllQuery },
   columns: [
-    { key: "number", header: "Número", size: 110 },
+    { key: "number", header: "Número", size: 100 },
     { key: "customerName", header: "Cliente" },
-    { key: "key", header: "Chave", size: 330 },
-    { key: "issuedAt", header: "Emissão", size: 120 },
-    { key: "dueDate", header: "Vencimento", size: 120 },
+    { key: "key", header: "Chave", size: 260 },
+    { key: "issuedAt", header: "Emissão", size: 100 },
+    { key: "dueDate", header: "Vencimento", size: 100 },
     { key: "carrierService", header: "Transp. serviço" },
-    { key: "freightValue", header: "Valor do frete", kind: "money", size: 140 },
-    { key: "reconciled", header: "Conciliado", size: 120, valueLabels: reconciledLabels },
+    { key: "freightValue", header: "Valor do frete", kind: "money", size: 120 },
+    { key: "reconciled", header: "Conciliado", size: 100, valueLabels: reconciledLabels },
   ],
   searchKeys: ["number", "key"],
   searchPlaceholder: "Pesquisar CTE...",
@@ -65,7 +66,7 @@ const cteResource = defineResource<Cte>({
     { key: "issuedAt", label: "Data emissão", kind: "date" },
     { key: "dueDate", label: "Data vencimento", kind: "date" },
   ],
-  toolbar: ["refresh"],
+  toolbar: [],
   pageActions: [
     {
       key: "send-billing",
@@ -92,6 +93,69 @@ const cteResource = defineResource<Cte>({
           const count = Array.isArray(values.customers) ? values.customers.length : 0;
           return `Cobrança enviada para ${count} cliente${count === 1 ? "" : "s"}.`;
         },
+      },
+    },
+    {
+      key: "import",
+      label: "Importar",
+      icon: UploadSimpleIcon,
+      group: "transfer",
+      form: {
+        kind: "dialog",
+        title: "Importar CTE",
+        submitLabel: "Importar",
+        defaults: { file: [], competence: "", invoiceNumber: "", dueDate: "", fileName: "" },
+        fields: [
+          {
+            name: "file",
+            label: "Arquivo",
+            kind: "file",
+            accept: ".zip,.xml",
+            placeholder: "Clique aqui ou arraste um arquivo .ZIP ou .XML",
+            required: true,
+          },
+          { name: "competence", label: "Competência", kind: "month", placeholder: "MM/AAAA", required: true },
+          { name: "invoiceNumber", label: "Número da fatura", span: "half", required: true },
+          { name: "dueDate", label: "Data de vencimento", kind: "date", span: "half", required: true },
+          { name: "fileName", label: "Nome do arquivo", placeholder: "Usa o nome do arquivo enviado se ficar vazio" },
+        ],
+        submit: (values) => {
+          const [file] = (values.file as File[] | undefined) ?? [];
+          const name = String(values.fileName ?? "").trim() || file?.name || "arquivo";
+          return `${name} recebido para a competência ${values.competence}. A importação será processada em segundo plano.`;
+        },
+      },
+    },
+    {
+      key: "export",
+      label: "Exportar",
+      icon: DownloadSimpleIcon,
+      group: "transfer",
+      run: (_selected, visible) => {
+        downloadCsv(
+          "ctes.csv",
+          toCsv(visible as unknown as ResourceRecord[], [
+            { key: "number", header: "Número" },
+            { key: "series", header: "Série" },
+            { key: "key", header: "Chave" },
+            { key: "customerIdentifier", header: "Identificador cliente" },
+            { key: "customerName", header: "Cliente" },
+            { key: "competence", header: "Competência" },
+            { key: "issuedAt", header: "Emissão" },
+            { key: "dueDate", header: "Vencimento" },
+            { key: "carrierService", header: "Transportadora serviço" },
+            { key: "trackingCode", header: "Código de rastreio" },
+            { key: "invoice", header: "Fatura" },
+            { key: "cteValue", header: "Valor CTE", kind: "money" },
+            { key: "freightValue", header: "Valor do frete", kind: "money" },
+            { key: "reconciled", header: "Conciliado", valueLabels: reconciledLabels },
+          ]),
+        );
+        toast.success(
+          visible.length === 1
+            ? "1 CTE exportado em CSV."
+            : `${visible.length} CTEs exportados em CSV.`,
+        );
       },
     },
     {
@@ -126,17 +190,55 @@ const cteResource = defineResource<Cte>({
       },
     },
   ],
-  detail: {
-    title: (cte) => `Visualizar CTE · ${cte.number}`,
-    fields: [
-      { name: "customerName", label: "Cliente", span: "half" },
-      { name: "carrierService", label: "Transp. serviço", span: "half" },
-      { name: "key", label: "Chave do CTE" },
-      { name: "issuedAt", label: "Emissão", span: "third" },
-      { name: "freightValue", label: "Valor do frete", kind: "money", span: "third" },
-      { name: "reconciled", label: "Conciliado", kind: "switch", span: "third" },
-    ],
-  },
+  /**
+   * "Visualizar CTE" do legado, com as informações correlatas agrupadas: o documento CT-e, a NF-e
+   * de origem, cliente e pedido, emitente/destinatário, transporte e cobrança; as opções (JSON) fecham a visualização.
+   */
+  views: [
+    {
+      key: "detail",
+      label: "Visualizar",
+      icon: EyeIcon,
+      kind: "drawer",
+      title: (cte) => `Visualizar CTE · ${cte.number}`,
+      footerActions: ["download"],
+      fields: [
+        { name: "key", label: "Chave", group: "CT-e" },
+        { name: "number", label: "Número", span: "third", group: "CT-e" },
+        { name: "series", label: "Série", span: "third", group: "CT-e" },
+        { name: "competence", label: "Competência", span: "third", group: "CT-e" },
+        { name: "issuedAt", label: "Data de emissão", span: "half", group: "CT-e" },
+        { name: "cteValue", label: "Valor", kind: "money", span: "half", group: "CT-e" },
+        { name: "nfeKey", label: "Chave", group: "NF-e" },
+        { name: "nfeGeneratedAt", label: "Data de geração", span: "half", group: "NF-e" },
+        { name: "freightValue", label: "Valor do frete", kind: "money", span: "half", group: "NF-e" },
+        { name: "customerName", label: "Nome do cliente", span: "half", group: "Cliente e pedido" },
+        { name: "customerIdentifier", label: "Identificador do cliente", span: "half", group: "Cliente e pedido" },
+        { name: "storeName", label: "Loja", span: "half", group: "Cliente e pedido" },
+        { name: "storeCnpj", label: "CPF/CNPJ da loja", span: "half", group: "Cliente e pedido" },
+        { name: "orderCode", label: "Código do pedido", span: "half", group: "Cliente e pedido" },
+        { name: "issuerCnpj", label: "CPF/CNPJ do emitente", span: "half", group: "Emitente e destinatário" },
+        { name: "recipientCnpj", label: "CPF/CNPJ do destinatário", span: "half", group: "Emitente e destinatário" },
+        { name: "carrierService", label: "Transportadora", group: "Transporte" },
+        { name: "trackingCode", label: "Código de rastreio", span: "half", group: "Transporte" },
+        { name: "carrierTrackingCode", label: "Código de rastreio (transportadora)", span: "half", group: "Transporte" },
+        { name: "grossWeight", label: "Peso bruto", kind: "decimal", suffix: "kg", span: "half", group: "Transporte" },
+        { name: "billedWeight", label: "Peso faturado", kind: "decimal", suffix: "kg", span: "half", group: "Transporte" },
+        { name: "dueDate", label: "Vencimento", span: "third", group: "Cobrança" },
+        { name: "invoice", label: "Fatura", span: "third", group: "Cobrança" },
+        { name: "reconciled", label: "Conciliado", kind: "switch", span: "third", group: "Cobrança" },
+        { name: "options", label: "Opções", kind: "code" },
+      ],
+    },
+  ],
+  rowActions: [
+    {
+      key: "download",
+      label: "Baixar arquivo",
+      icon: DownloadSimpleIcon,
+      run: (cte) => toast.success(`Download de ${cte.fileName} iniciado.`),
+    },
+  ],
 });
 
 const reconciliationCteResource = defineResource<ReconciliationCte>({
@@ -150,17 +252,17 @@ const reconciliationCteResource = defineResource<ReconciliationCte>({
     useUpdate: useReconciliationCteUpdateMutation,
   },
   columns: [
-    { key: "id", header: "ID item", size: 110 },
-    { key: "cteId", header: "ID CTE", size: 110 },
-    { key: "number", header: "Número", size: 110 },
-    { key: "series", header: "Série", size: 80 },
-    { key: "key", header: "Chave", size: 330 },
-    { key: "dueDate", header: "Vencimento", size: 120 },
+    { key: "id", header: "ID item", size: 80 },
+    { key: "cteId", header: "ID CTE", size: 80 },
+    { key: "number", header: "Número", size: 90 },
+    { key: "series", header: "Série", size: 64 },
+    { key: "key", header: "Chave", size: 200 },
+    { key: "dueDate", header: "Vencimento", size: 100 },
     { key: "customerName", header: "Cliente" },
-    { key: "cteValue", header: "Valor CTE", kind: "money", size: 120 },
-    { key: "intermediationValue", header: "Valor intermediação", kind: "money", size: 170 },
-    { key: "freightValue", header: "Valor frete", kind: "money", size: 120 },
-    { key: "reconciled", header: "Conciliado", kind: "switch", size: 110 },
+    { key: "cteValue", header: "Valor CTE", kind: "money", size: 110 },
+    { key: "intermediationValue", header: "Valor intermediação", kind: "money", size: 140 },
+    { key: "freightValue", header: "Valor frete", kind: "money", size: 100 },
+    { key: "reconciled", header: "Conciliado", kind: "switch", size: 100 },
   ],
   searchKeys: ["number", "key"],
   searchPlaceholder: "Pesquisar CTE...",
@@ -193,20 +295,20 @@ const reconciliationResource = defineResource<Reconciliation>({
     useRemove: useReconciliationRemoveMutation,
   },
   columns: [
-    { key: "id", header: "ID", size: 96 },
-    { key: "date", header: "Data", size: 120 },
+    { key: "id", header: "ID", size: 72 },
+    { key: "date", header: "Data", size: 100 },
     { key: "customerName", header: "Cliente", filterable: true },
-    { key: "cnpj", header: "CNPJ", size: 180 },
-    { key: "tolerance", header: "Tolerância", kind: "money", size: 120 },
-    { key: "cteCount", header: "CTEs", size: 90 },
-    { key: "itemCount", header: "Total de itens", size: 130 },
-    { key: "totalValue", header: "Valor total", kind: "money", size: 140 },
-    { key: "difference", header: "Valor diferença", kind: "money", size: 150 },
-    { key: "reconciledPercent", header: "% conciliado", kind: "percent", size: 130 },
+    { key: "cnpj", header: "CNPJ", size: 150 },
+    { key: "tolerance", header: "Tolerância", kind: "money", size: 100 },
+    { key: "cteCount", header: "CTEs", size: 64 },
+    { key: "itemCount", header: "Total de itens", size: 100 },
+    { key: "totalValue", header: "Valor total", kind: "money", size: 120 },
+    { key: "difference", header: "Valor diferença", kind: "money", size: 120 },
+    { key: "reconciledPercent", header: "% conciliado", kind: "percent", size: 110 },
   ],
   searchKeys: ["id", "customerName", "cnpj"],
   searchPlaceholder: "Pesquisar conciliação...",
-  toolbar: ["download-csv"],
+  toolbar: ["export"],
   createLabel: "Nova conciliação",
   recordPath: (reconciliation) =>
     `/magazord-envios/conciliacoes-de-frete/${reconciliation.id}`,
@@ -335,7 +437,7 @@ const billingDocumentResource = defineResource<BillingDocument>({
   ],
   searchKeys: ["id", "identifier", "file"],
   searchPlaceholder: "Pesquisar documento...",
-  toolbar: ["download-csv"],
+  toolbar: ["export"],
   createLabel: "Importar",
   createIcon: UploadSimpleIcon,
   rowActions: [

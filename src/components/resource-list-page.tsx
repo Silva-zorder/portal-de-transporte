@@ -17,7 +17,11 @@ function ResourceListPage({
         title={definition.title}
         actions={
           <>
-            <ResourcePageActions definition={definition} controller={controller} />
+            <ResourcePageActions
+              definition={definition}
+              controller={controller}
+              trailingAction={Boolean(definition.createLabel)}
+            />
             {definition.createLabel && (
               <Button
                 onClick={controller.openCreate}

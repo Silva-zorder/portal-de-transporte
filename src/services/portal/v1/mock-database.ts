@@ -362,6 +362,34 @@ function createMockDatabase(): MockDatabase {
       invoice: `FAT-${2026110 + Math.floor(index / 6)}`,
       freightValue: money(index, 18.75, 7.35),
       reconciled: index % 4 !== 1 && index % 4 !== 3,
+      series: String(1 + (index % 3)),
+      cteValue: money(index, 14.2, 5.1),
+      nfeKey: `4226 1018 5754 8800 0140 5500 5000 0014 ${3810 + index} 0025 2609`,
+      nfeGeneratedAt: `${pad(day - 1)}/11/2026, ${pad(8 + (index % 10))}:${pad((index * 7) % 60)}:24`,
+      orderCode: `00126100${pad(92351 + index * 13, 5)}`,
+      storeName: customer.name,
+      trackingCode: `MZ2026104${pad(77732 + index, 5)}FB`,
+      carrierTrackingCode: String(888031014344806 + index * 17),
+      grossWeight: Math.round((0.21 + (index % 9) * 0.35) * 1000) / 1000,
+      billedWeight: Math.round((0.21 + (index % 9) * 0.35) * 100) / 100,
+      fileName: `00018${pad(28331 + index, 5)}.zip`,
+      options: JSON.stringify(
+        {
+          fileName: `00018${pad(28331 + index, 5)}.zip`,
+          infCarga: {
+            infQ: [
+              { cUnid: "01", tpMed: "PESO DECLARADO", qCarga: (0.21 + (index % 9) * 0.35).toFixed(4) },
+              { cUnid: "01", tpMed: "PESO BALANCA", qCarga: (0.21 + (index % 9) * 0.35).toFixed(4) },
+              { cUnid: "03", tpMed: "UNIDADE", qCarga: "1.0000" },
+            ],
+            vCarga: money(index, 89.9, 12.4).toFixed(2),
+            proPred: "MERCADORIAS DIVERSAS",
+          },
+          modal: "rodoviario",
+        },
+        null,
+        2,
+      ),
     };
   });
 
@@ -445,6 +473,82 @@ function createMockDatabase(): MockDatabase {
     platform: pick(["MZ", "MZ", "Tray", "Nuvemshop"], index),
     status: index % 8 === 7 ? "Falha" : "Enviado",
   }));
+
+  // Cada notificação é enviada por uma ou mais requests; a mais recente define a situação.
+  const notificationRequests = notifications.flatMap((notification, n) => {
+    const failed = notification.status === "Falha";
+    const attempts = failed ? 2 + (n % 2) : 1 + (n % 3 === 0 ? 1 : 0);
+    const note = `4226111788754900014255005000${pad(112528 + n, 6)}1001128510`.slice(0, 44);
+    const viaEmail = n % 3 !== 2;
+    return range(attempts).map((attempt) => {
+      const isLatest = attempt === attempts - 1;
+      const ok = isLatest ? !failed : false;
+      const day = notification.issuedAt.slice(0, 10);
+      const date = `${day}, ${pad(15 - (attempts - 1 - attempt))}:${pad(25 - attempt * 7 + 20)}:${pad((n * 7 + attempt) % 60)}`;
+      const to = `nfe@${notification.identifier.toLowerCase()}.com.br`;
+      const messageId = `010301a1ef43${pad(1737 + n, 4)}-81438727-5763-43ca-a683-91d86b8b87b5-${pad(attempt, 6)}`;
+      if (viaEmail) {
+        return {
+          id: 20000 + n * 10 + attempt,
+          notificationId: notification.id,
+          note,
+          date,
+          integration: "EMAIL",
+          message: ok ? "OK" : "Throttling: Maximum sending rate exceeded",
+          url: "Email via AWS SES",
+          method: "SENDMAIL",
+          httpCode: ok ? 200 : 454,
+          request: JSON.stringify(
+            {
+              to: [to],
+              from: "Portal de Transportes <portal.transportes@magazord.com.br>",
+              html: "Em anexo",
+              subject: `${notification.identifier} - NF ${note}`,
+            },
+            null,
+            2,
+          ),
+          response: JSON.stringify(
+            ok
+              ? {
+                  envelope: { to: [to], from: "portal.transportes@magazord.com.br" },
+                  response: messageId,
+                  messageId: `<${messageId}@sa-east-1.amazonses.com>`,
+                }
+              : { error: "Throttling", message: "Maximum sending rate exceeded." },
+            null,
+            2,
+          ),
+        };
+      }
+      return {
+        id: 20000 + n * 10 + attempt,
+        notificationId: notification.id,
+        note,
+        date,
+        integration: "WEBHOOK",
+        message: ok ? "OK" : "Internal Server Error",
+        url: `https://api.${notification.identifier.toLowerCase()}.com.br/webhooks/rastreio`,
+        method: "POST",
+        httpCode: ok ? 200 : 500,
+        request: JSON.stringify(
+          {
+            trackingCode: notification.trackingCode,
+            invoice: notification.number,
+            key: note,
+            carrierService: notification.carrierService,
+          },
+          null,
+          2,
+        ),
+        response: JSON.stringify(
+          ok ? { received: true } : { error: "Internal Server Error" },
+          null,
+          2,
+        ),
+      };
+    });
+  });
 
   const mongoSyncs = range(28).map((index) => ({
     id: 300 + index,
@@ -551,6 +655,7 @@ function createMockDatabase(): MockDatabase {
     "reconciliation-ctes": reconciliationCtes,
     "billing-documents": billingDocuments,
     notifications,
+    "notification-requests": notificationRequests,
     "mongo-syncs": mongoSyncs,
     logs,
     users,

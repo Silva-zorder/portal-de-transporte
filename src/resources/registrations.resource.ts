@@ -83,7 +83,7 @@ const carrierResource = defineResource<Carrier>({
       size: 160,
       filterable: true,
       valueLabels: { true: "Parceira", false: "Não parceira" },
-      badgeVariants: { Parceira: "primary", "Não parceira": "outline" },
+      badgeVariants: { Parceira: "secondary", "Não parceira": null },
     },
   ],
   searchKeys: ["id", "name"],
@@ -271,7 +271,7 @@ const customerMarketplaceResource = defineResource<CustomerMarketplace>({
     { key: "description", label: "Descrição", kind: "search" },
     { key: "active", label: "Ativo", kind: "select", valueLabels: { true: "Ativo", false: "Inativo" } },
   ],
-  toolbar: ["download-csv"],
+  toolbar: ["export"],
   createLabel: "Novo marketplace",
   recordPath: (market) => `/cadastros/marketplace/${market.id}`,
   rowLinks: [
@@ -321,7 +321,7 @@ const customerResource = defineResource<Customer>({
   ],
   searchKeys: ["id", "name", "identifier"],
   searchPlaceholder: "Pesquisar cliente...",
-  toolbar: ["download-csv"],
+  toolbar: ["export"],
   createLabel: "Novo cliente",
   detail: {
     kind: "drawer",
@@ -473,7 +473,7 @@ const customerGroupResource = defineResource<CustomerGroup>({
   ],
   searchKeys: ["id", "description"],
   searchPlaceholder: "Pesquisar grupo...",
-  toolbar: ["refresh"],
+  toolbar: [],
   createLabel: "Novo grupo",
   recordPath: (group) => `/cadastros/grupos-de-clientes/${group.id}`,
   rowLinks: [

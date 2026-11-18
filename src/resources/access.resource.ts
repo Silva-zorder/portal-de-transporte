@@ -126,7 +126,7 @@ const userResource = defineResource<User>({
   ],
   searchKeys: ["id", "name", "email"],
   searchPlaceholder: "Pesquisar usuário...",
-  toolbar: ["refresh"],
+  toolbar: [],
   createLabel: "Novo usuário",
   createIcon: UserCirclePlusIcon,
   recordPath: (user) => `/acesso/usuarios/${user.id}`,
@@ -227,7 +227,7 @@ const profileResource = defineResource<Profile>({
   ],
   searchKeys: ["id", "name"],
   searchPlaceholder: "Pesquisar perfil...",
-  toolbar: ["refresh"],
+  toolbar: [],
   createLabel: "Novo perfil",
   recordPath: (profile) => `/acesso/perfis/${profile.id}`,
   rowLinks: [

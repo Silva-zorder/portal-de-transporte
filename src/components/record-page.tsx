@@ -131,7 +131,11 @@ function RecordChildTab({
     <>
       {renderHeader(
         <>
-          <ResourcePageActions definition={tab.definition} controller={controller} />
+          <ResourcePageActions
+            definition={tab.definition}
+            controller={controller}
+            trailingAction={Boolean(tab.definition.createLabel)}
+          />
           {tab.definition.createLabel && (
             <Button
               onClick={controller.openCreate}

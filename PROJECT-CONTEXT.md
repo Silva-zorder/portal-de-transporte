@@ -546,6 +546,14 @@ None of these has a Figma frame. Each follows the two drawn patterns and takes i
     approved by the requester on 2026-11-17 until the DS ships one.
 13. **No date-range or month picker.** The CTE "Competência" filter uses the DS `Calendar` in single mode and keeps
     only the month and year of the picked day.
+14. **No read-only style for `Input`/`Textarea`.** The DS only styles `disabled` (opacity 50, not-allowed cursor).
+    Read-only views now use `readOnly` without `disabled` (2026-11-18), so the value looks like a normal field and
+    can be selected; a dedicated read-only variant would make the difference visible. The `Badge` also lacks
+    `success`/`warning` variants (the app uses the DS `badge-*` tokens on `secondary`).
+15. **Table width (2026-11-18).** Columns without `size` must not pass `size: undefined` (it becomes TanStack's 150 px
+    default instead of the DS auto width), and the "Ações" width is computed from the exposed button labels
+    (`actionsColumnWidth`). Column sizes were trimmed so every list fits at 1440 px without horizontal scroll; a
+    pinned (sticky) Ações column was tried and rejected by the requester.
 
 ---
 
@@ -596,7 +604,11 @@ Interpretations to confirm with the requester:
 
 Pending:
 
-- **Visualização do CTE**: kept as the previous read-only dialog; the requester will define it later.
+- ~~Visualização do CTE~~ — **done 2026-11-18** from the legacy "Visualizar CTE" print: drawer with the fields
+  grouped as CT-e, NF-e, Cliente e pedido, Emitente e destinatário, Transporte, Cobrança, then Opções (JSON with
+  Copiar); "Baixar arquivo" is the footer primary action (also in the row menu). New CTE fields: series, cteValue,
+  nfeKey, nfeGeneratedAt, orderCode, storeName, trackingCode, carrierTrackingCode, grossWeight, billedWeight,
+  fileName, options.
 
 ## 14. Adjustment pack 2 of 2026-11-18
 
@@ -632,5 +644,10 @@ Interpretations to confirm with the requester:
 
 Pending:
 
-- **Visualização da notificação**: kept as the previous read-only dialog ("Visualizar" in the menu); to be defined
-  with the requester later.
+- ~~Visualização da notificação~~ — **done 2026-11-18**: "Visualizar" is an exposed row button (the ⋮ menu is gone
+  on Notificações) and opens the "Detalhes do request" drawer. A notification can be sent any number of times, so
+  each request (`notification-request` domain) is its own accordion (closed by default, content on `bg-accent-0`),
+  most recent first: Nota, Data,
+  Integração, Message, URL, Method, Código HTTP, Request and Response (JSON with "Copiar"). Views support
+  `exposed`, a custom `content` component and `footerActions` (Reenviar sits in the drawer footer); read-only
+  `code` fields now have a "Copiar" button everywhere.

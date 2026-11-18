@@ -78,16 +78,25 @@ function matchesSearch(
   return keys.some((key) => normalizeSearch(record[key]).includes(term));
 }
 
-function toCsv(
-  records: readonly ResourceRecord[],
-  columns: readonly { key: string; header: string }[],
-) {
+type CsvColumn = {
+  key: string;
+  header: string;
+  kind?: ResourceColumnKind;
+  valueLabels?: Record<string, string>;
+};
+
+/** CSV com o texto que a tabela mostra: colunas com `kind`/`valueLabels` saem formatadas (R$, Sim/Não). */
+function toCsv(records: readonly ResourceRecord[], columns: readonly CsvColumn[]) {
   const escape = (value: unknown) =>
     `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const cell = (record: ResourceRecord, column: CsvColumn) =>
+    column.kind || column.valueLabels
+      ? formatColumnValue(record[column.key], column.kind, column.valueLabels)
+      : record[column.key];
   return [
     columns.map((column) => escape(column.header)).join(";"),
     ...records.map((record) =>
-      columns.map((column) => escape(record[column.key])).join(";"),
+      columns.map((column) => escape(cell(record, column))).join(";"),
     ),
   ].join("\r\n");
 }
