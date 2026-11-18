@@ -9,6 +9,8 @@ type Customer = {
   token: string;
   analyst: string;
   melhorEnvioId: string;
+  melhorEnvioToken: string;
+  melhorEnvioAuthCode: string;
   active: boolean;
 };
 

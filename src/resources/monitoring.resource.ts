@@ -19,27 +19,52 @@ const notificationResource = defineResource<Notification>({
   article: "a",
   describe: (notification) => `Notificação ${notification.number}`,
   hooks: { useFetchAll: useNotificationFetchAllQuery },
-  selectable: true,
   columns: [
     { key: "identifier", header: "Identificador", size: 150, filterable: true },
     { key: "trackingCode", header: "Código de rastreio", size: 180 },
     { key: "number", header: "Número", size: 110 },
     { key: "key", header: "Chave" },
     { key: "issuedAt", header: "Data de emissão", size: 200 },
-    { key: "carrierService", header: "Transp. serviço", filterable: true },
+    { key: "carrierService", header: "Transp. serviço" },
+    { key: "platform", header: "Plataforma", size: 120 },
     {
       key: "status",
       header: "Situação",
       kind: "badge",
       size: 120,
       sortable: false,
-      filterable: true,
-      badgeVariants: { Enviado: "secondary", Falha: "destructive" },
+      badgeVariants: { Enviado: "success", Falha: "destructive" },
     },
   ],
-  searchKeys: ["identifier", "trackingCode", "number", "key"],
+  searchKeys: ["identifier", "number", "key", "carrierService"],
   searchPlaceholder: "Pesquisar notificação...",
-  toolbar: ["refresh", "filter"],
+  filters: [
+    { key: "identifier", label: "Identificador", kind: "search" },
+    { key: "number", label: "Número", kind: "search" },
+    { key: "key", label: "Chave", kind: "search" },
+    { key: "carrierService", label: "Transportadora serviço", kind: "search" },
+    { key: "trackingCode", label: "Código de rastreio", kind: "input" },
+    { key: "issuedAt", label: "Data de emissão", kind: "date" },
+    { key: "status", label: "Situação", kind: "select" },
+    { key: "platform", label: "Plataforma", kind: "select" },
+  ],
+  toolbar: ["refresh"],
+  selectable: true,
+  pageActions: [
+    {
+      key: "resend",
+      label: "Reenviar",
+      icon: PaperPlaneTiltIcon,
+      primary: true,
+      requiresSelection: true,
+      run: (notifications) =>
+        toast.success(
+          notifications.length === 1
+            ? `Notificação ${notifications[0].number} reenviada.`
+            : `${notifications.length} notificações reenviadas.`,
+        ),
+    },
+  ],
   detail: {
     title: (notification) => `Notificação · ${notification.number}`,
     fields: [
@@ -50,6 +75,7 @@ const notificationResource = defineResource<Notification>({
       { name: "key", label: "Chave" },
       { name: "issuedAt", label: "Data de emissão", span: "half" },
       { name: "carrierService", label: "Transp. serviço", span: "half" },
+      { name: "platform", label: "Plataforma", span: "half" },
     ],
   },
   rowActions: [
@@ -57,6 +83,7 @@ const notificationResource = defineResource<Notification>({
       key: "resend",
       label: "Reenviar",
       icon: PaperPlaneTiltIcon,
+      exposed: true,
       run: (notification) =>
         toast.success(`Notificação ${notification.number} reenviada.`),
     },
@@ -82,9 +109,9 @@ const mongoSyncResource = defineResource<MongoSync>({
       sortable: false,
       filterable: true,
       badgeVariants: {
-        Concluída: "secondary",
-        "Em andamento": "primary",
-        Falhou: "destructive",
+        Concluída: "success",
+        "Em andamento": "warning",
+        Erro: "destructive",
       },
     },
     { key: "requestedAt", header: "Data de solicitação" },
@@ -94,18 +121,9 @@ const mongoSyncResource = defineResource<MongoSync>({
   ],
   searchKeys: ["tables", "filters", "requestedAt"],
   searchPlaceholder: "Pesquisar sincronização...",
-  toolbar: ["refresh", "filter"],
+  toolbar: ["refresh"],
   createLabel: "Nova sincronização",
   createIcon: ArrowsClockwiseIcon,
-  detail: {
-    title: (sync) => `Sincronização · ${sync.requestedAt}`,
-    fields: [
-      { name: "status", label: "Status", span: "half" },
-      { name: "duration", label: "Tempo gasto", span: "half" },
-      { name: "tables", label: "Tabelas", span: "half" },
-      { name: "filters", label: "Filtros", span: "half" },
-    ],
-  },
   form: {
     kind: "drawer",
     createTitle: "Nova sincronização",
@@ -126,10 +144,10 @@ const mongoSyncResource = defineResource<MongoSync>({
 
 const logResource = defineResource<Log>({
   key: "logs",
-  title: "Log",
-  noun: "log",
+  title: "Histórico de registros",
+  noun: "registro",
   article: "o",
-  describe: (log) => `Log ${log.id}`,
+  describe: (log) => `Registro ${log.id}`,
   hooks: { useFetchAll: useLogFetchAllQuery },
   columns: [
     {
@@ -139,21 +157,29 @@ const logResource = defineResource<Log>({
       size: 150,
       filterable: true,
       badgeVariants: {
-        Alteração: "secondary",
+        Nova: "success",
+        Alteração: "warning",
         Exclusão: "destructive",
-        Nova: "primary",
       },
     },
-    { key: "table", header: "Tabela", filterable: true },
-    { key: "user", header: "Usuário", filterable: true },
+    { key: "table", header: "Tabela" },
+    { key: "user", header: "Usuário" },
     { key: "dbUser", header: "Usuário banco" },
     { key: "date", header: "Data" },
   ],
   searchKeys: ["table", "user", "action"],
-  searchPlaceholder: "Pesquisar no log...",
-  toolbar: ["filter"],
+  searchPlaceholder: "Pesquisar no histórico...",
+  filters: [
+    { key: "table", label: "Tabela", kind: "search" },
+    { key: "user", label: "Usuário", kind: "search" },
+    { key: "date", label: "Data", kind: "date" },
+    { key: "action", label: "Ação realizada", kind: "select" },
+    { key: "table", label: "Tabela", kind: "select" },
+    { key: "user", label: "Usuário", kind: "select" },
+  ],
+  toolbar: [],
   detail: {
-    title: (log) => `Detalhamento de log · ${log.table}`,
+    title: (log) => `Detalhamento do registro · ${log.table}`,
     fields: [
       { name: "action", label: "Ação realizada", span: "half" },
       { name: "date", label: "Data", span: "half" },

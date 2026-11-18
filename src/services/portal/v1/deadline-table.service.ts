@@ -6,9 +6,6 @@ type DeadlineTable = {
   carrierService: string;
   name: string;
   sharedPlatforms: string;
-  additionalDays: number;
-  cutoffTime: string;
-  considerHolidays: boolean;
   active: boolean;
 };
 

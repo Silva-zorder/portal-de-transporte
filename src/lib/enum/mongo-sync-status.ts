@@ -1,13 +1,13 @@
 const EnumMongoSyncStatus = {
   DONE: "Concluída",
   RUNNING: "Em andamento",
-  FAILED: "Falhou",
+  FAILED: "Erro",
 } as const;
 
 const EnumMongoSyncStatusCaption = {
   [EnumMongoSyncStatus.DONE]: "Concluída",
   [EnumMongoSyncStatus.RUNNING]: "Em andamento",
-  [EnumMongoSyncStatus.FAILED]: "Falhou",
+  [EnumMongoSyncStatus.FAILED]: "Erro",
 } as const satisfies Record<EnumMongoSyncStatusValue, string>;
 
 const EnumMongoSyncStatusOptions = Object.values(EnumMongoSyncStatus).map((value) => ({

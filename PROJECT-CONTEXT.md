@@ -3,7 +3,7 @@
 Handoff document. It records what the product owner asked for, what was learned from the Figma file and from the
 Hubble DS repository, and what is still undecided. Read it fully before touching code.
 
-Last updated: 2026-11-16. Status: **first full implementation delivered and verified in the browser** — all 43
+Last updated: 2026-11-18 (adjustment packs, see §13 and §14). Status: **first full implementation delivered and verified in the browser** — all 43
 frames plus the extrapolated overlays. See §9–§12 for what exists, what was invented and what to report to the DS
 team. Nothing is committed (no git repository here) and nothing is deployed.
 
@@ -394,17 +394,16 @@ hooks keep their signatures.
 |---|---|
 | `/` | 0.0 |
 | `/cadastros/transportadoras`, `/cadastros/transportadora-servico` | 1.0, 1.1 |
-| `/cadastros/clientes`, `…/:id`, `…/:id/marketplaces` | 1.2, 1.3, 1.4 |
+| `/cadastros/clientes` (1.3/1.4 removed on 2026-11-17: Visualizar opens a drawer) | 1.2 |
 | `/cadastros/marketplace`, `…/:id`, `…/:id/transportadoras` | 1.5, 1.6, 1.7 |
 | `/cadastros/grupos-de-clientes`, `…/:id`, `…/:id/clientes` | 1.8, 1.9, 1.10 |
 | `/tabelas-de-frete/prazos`, `…/:id`, `…/:id/faixas-de-cep` | 2.0, 2.1, 2.2 |
 | `/tabelas-de-frete/precos`, `…/:id`, `…/:id/cargas`, `…/:id/taxas` | 2.3–2.8 |
 | `/tabelas-de-frete/relacionamento-de-tabelas` | 2.9 |
 | `/magazord-envios/ctes`, `/conciliacoes-de-frete`, `…/:id`, `…/:id/ctes`, `/documentos-de-cobranca` | 3.0–3.4 |
-| `/monitoramento/notificacoes`, `/sincronizacao-mongo-db`, `/logs` | 4.0–4.2 |
-| `/acesso/usuarios`, `…/:id`, `…/:id/grupos`, `…/:id/perfis`, `/acesso/perfis` | 5.0–5.4 |
+| `/monitoramento/notificacoes`, `/sincronizacao-mongo-db`, `/historico-de-registros` | 4.0–4.2 |
+| `/acesso/usuarios`, `…/:id`, `…/:id/grupos`, `…/:id/perfis`, `/acesso/perfis`, `…/:id`, `…/:id/rotas` | 5.0–5.4 |
 | `/ferramentas/manutencao`, `…/relatorios` | 6.0, 6.1 |
-| `/ferramentas/calculadora-de-frete` | 6.2, 6.3 |
 
 ### Work tabs (workarea)
 
@@ -485,15 +484,15 @@ None of these has a Figma frame. Each follows the two drawn patterns and takes i
 
 | Where | What was invented |
 |---|---|
-| Every list | Row "⋮" menu items: Visualizar, Editar, Excluir (+ module-specific items). Delete asks for confirmation. |
-| Every list | "Filtrar" drawer: Status plus one select per column marked `filterable`. |
+| Every list | Row "⋮" menu items: Visualizar, Editar, Excluir (+ module-specific items). Delete asks for confirmation. Exposed row actions are `secondary` buttons without icon. |
+| Every list | Filter header (rule from the 2026-11-17 pack): typed filters become options of a composite search (field select + text); selects/dates sit on the right; with more than 5, the first 3 stay out and the rest go to the "Filtrar" drawer. Columns can be resized (drag the header edge) and reordered (drag the header). |
 | Every list | "Exportar"/"Baixar CSV" downloads the filtered rows; "Atualizar" refetches; "Importar" opens a CSV upload dialog (the file is accepted, not parsed). |
 | Every list footer | The three unlabeled icon buttons became: open in new tab, save view (toast only), reset view. Meaning **confirmed by the requester on 2026-11-16**; "save view" still needs real persistence. |
 | Transportadoras, Transportadora serviço, Clientes, Marketplace, Grupos, Prazos, Preços (create), Relacionamento, Usuários, Perfis, Conciliações, Documentos de cobrança, Sincronização Mongo | Create/edit **drawer** with the legacy fields. |
 | Faixas de CEP, Taxas, Cargas (create), Marketplaces do cliente, Transportadoras do marketplace, Clientes do grupo, Grupos/Perfis do usuário | Create/edit **dialog**. |
 | CTEs, Logs, Notificações, Relacionamento, Sincronização | "Visualizar" read-only dialog (logs show the JSON of data and changes). |
-| CTEs | Row actions Enviar cobrança, Conciliar frete, Baixar arquivo (toast only). |
-| Conciliações | Row action Histórico de recálculo; "Recalcular fatura" (toast only). |
+| CTEs | Page actions Enviar cobrança (dialog: clients multi-select, Chave NFS-e, Competência), Conciliar frete (toast), Resumo dos valores (totals dialog). Nothing is sent. |
+| Conciliações | Row action Histórico de recálculo; exposed "Listar CTEs"; "Recalcular fatura" (toast only). |
 | Manutenção › Sincronizações | Cards "Forçar atualização de ocorrências" and "Atualização DNE" (from the legacy map); confirmation before every update. |
 | Manutenção › Relatórios | Fields are editable; "Gerar relatório" and "Exportar" buttons added (they download a header-only CSV). |
 | Calculadora | The quote values come from an illustrative formula, not real pricing. |
@@ -510,7 +509,8 @@ None of these has a Figma frame. Each follows the two drawn patterns and takes i
    `npm run local-pack` stop after the first package's JS is written. Workaround in §9.
 2. **`DataTable` row selection double-toggles.** With `enableRowSelection` + `createDataTableRowSelectionColumnDef`,
    clicking the checkbox toggles the row, the click bubbles to the `TableRow` `onClick` and toggles it back
-   (measured: 0 rows selected after one checkbox click). The app passes its own `cell` through the helper's
+   (measured: 0 rows selected after one checkbox click). **2026-11-18: no longer reproduces with the current DS
+   pack** — Notificações uses the helper as-is and one click selects one row. The app passes its own `cell` through the helper's
    `options` with `stopPropagation` (`resource-list.tsx`). Any other interactive element inside a selectable row
    has the same problem.
 3. **Breadcrumb demo nests `<li>` inside `<li>`.** `breadcrumb.demo.tsx` puts `BreadcrumbSeparator` (an `li`)
@@ -536,6 +536,15 @@ None of these has a Figma frame. Each follows the two drawn patterns and takes i
     both. The work tabs therefore use the `!` modifier on overridden properties, which is the same idiom the DS uses
     (`p-0!` in `IconButton`).
 
+12. **`DataTable` has no column resize or reorder UI.** It ships `columnSizingFeature` and reads
+    `header.getSize()`, but renders no resize handle and doesn't include `columnOrderingFeature`. The app adds
+    `columnOrderingFeature` through the documented feature extensions, makes `DataTableColumn` draggable (native
+    HTML5 drag) and renders its own resize handle: a `span` with `cursor-col-resize` and `hover:bg-primary`
+    inside the header (`resource-list.tsx`). That handle is the only app-made visual element in the lists;
+    approved by the requester on 2026-11-17 until the DS ships one.
+13. **No date-range or month picker.** The CTE "Competência" filter uses the DS `Calendar` in single mode and keeps
+    only the month and year of the picked day.
+
 ---
 
 ## 12. Known deviations from the Figma frames
@@ -558,3 +567,68 @@ None of these has a Figma frame. Each follows the two drawn patterns and takes i
   the Cargas/Taxas links drawn in 2.3; the frames show only "⋮" there.
 - Outside the app: a `portal-de-transporte` entry was added to
   `CLAUDE PROJECTS/design-inclusao-de-pedido-main/.claude/launch.json` so the preview pane can start the app.
+
+---
+
+## 13. Adjustment pack of 2026-11-17
+
+Source: `Pack de ajustes.txt` from the requester. Decisions taken with the requester on 2026-11-17:
+
+- Resizable/reorderable columns are built in the app (§11.12).
+- Clientes: Visualizar opens a read-only drawer; the client record page (1.3) and its Marketplaces tab (1.4) are no
+  longer reachable. "Visualizar Melhor Envio" opens a second drawer (Id cliente, Token cliente, Código de autorização).
+- Preços › Nova carga: only Sigla tarifária, Tipo and Base de cálculo. Peso até and Valor stay as columns and filters
+  but can no longer be set in the form.
+- CTEs: the checkbox column is gone; Enviar cobrança (primary), Conciliar frete and Resumo dos valores are page
+  header buttons.
+
+Interpretations to confirm with the requester:
+
+- Carga "Tipo" has no source in the legacy map; the options (Peso, Valor da nota, Volume) are invented.
+- Relacionamento "Transportadora" is the carrier **service** (same list as the other screens). "Nome" is the client's
+  name, filled on save, since the new form has no name field.
+- Faixas de CEP: the "Prazo" filter matches both Prazo and Prazo máximo; "CEP" matches CEP inicial or CEP final.
+- CTE filter placement: Cliente, Transportadora serviço and Conciliado on the header; Competência, Data emissão and
+  Data vencimento in the drawer (dates counted as selects).
+- Conciliação "Listar CTEs" is the exposed action; "Histórico de recálculo" stays in the menu.
+
+Pending:
+
+- **Visualização do CTE**: kept as the previous read-only dialog; the requester will define it later.
+
+## 14. Adjustment pack 2 of 2026-11-18
+
+Source: "Pack de updates 2" from the requester (pasted in chat).
+
+- **Notificações**: checkbox column (`selectable`); header "Reenviar" (primary) is enabled only with one or more rows
+  selected (`pageActions[].requiresSelection`, selection kept in the form controller). "Reenviar" is also an exposed
+  row button (`rowActions[].exposed`). Filters: Data de emissão (date), Situação and Plataforma (selects), Código de
+  rastreio (input on the right), Identificador / Número / Chave / Transportadora serviço (search). New `platform`
+  field and column.
+- **Status badges**: `ResourceBadge` adds `success` and `warning` on top of the DS Badge using the DS tokens
+  `badge-bg-success` / `badge-text-success` / `badge-bg-warning` / `badge-text-warning` (the DS Badge has no such
+  variants — §11 candidate). Mongo: Concluída success, Em andamento warning, Erro destructive (status renamed from
+  "Falhou"). Histórico: Nova success, Alteração warning, Exclusão destructive. Notificações: Enviado success.
+- **Sincronização Mongo DB**: no Ações column (the read-only detail was its only item).
+- **Logs → Histórico de registros** (title, sidebar and route `/monitoramento/historico-de-registros`); Data filter
+  matches the day of "dd/mm/aaaa hh…" values.
+- **Usuários**: exposed "Grupos" and "Perfis" buttons open the user record tabs; "Redefinir login" in the menu
+  (confirm + toast).
+- **Perfil**: exposed "Rotas" opens the profile record (`/acesso/perfis/:id/rotas`) with ID, Método (badge: GET
+  success, POST warning, DELETE destructive) and Rota. New `profile-route` domain and `http-method` enum.
+- **Manutenção**: Atualização DNE now comes before Forçar atualização; both report buttons are primary; both reports
+  use one period field (`DateRangePickerField`, DS `Calendar` in range mode, two months).
+- **Calculadora de frete** removed (page, route and sidebar item).
+- **Sidebar footer**: user name + role (mock: Edgar Ferreira · Master), "Modo escuro" switch (toggles the DS `dark`
+  class on `<html>`, saved in localStorage), then Sair. The name was removed from the sidebar header.
+
+Interpretations to confirm with the requester:
+
+- Order of the footer: user → Modo escuro → Sair ("abaixo dessa opção" read as below the user).
+- Transportadora serviço on Notificações is a search option (it was a select before).
+- Método badge colours (GET green, POST orange, DELETE red) were not specified.
+
+Pending:
+
+- **Visualização da notificação**: kept as the previous read-only dialog ("Visualizar" in the menu); to be defined
+  with the requester later.

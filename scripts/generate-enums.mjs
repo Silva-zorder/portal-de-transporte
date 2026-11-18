@@ -47,7 +47,7 @@ const enums = {
   "mongo-sync-status": {
     DONE: "Concluída",
     RUNNING: "Em andamento",
-    FAILED: "Falhou",
+    FAILED: "Erro",
   },
   "mongo-sync-table": {
     CLIENT_SERVICE: "VW_Client_Service",
@@ -55,6 +55,29 @@ const enums = {
   },
   "log-action": { CREATE: "Nova", UPDATE: "Alteração", REMOVE: "Exclusão" },
   "user-type": { COGNITO: "Cognito", MASTER: "Master" },
+  "http-method": { GET: "GET", POST: "POST", DELETE: "DELETE" },
+  uf: {
+    AC: "AC", AL: "AL", AP: "AP", AM: "AM", BA: "BA", CE: "CE", DF: "DF", ES: "ES", GO: "GO",
+    MA: "MA", MT: "MT", MS: "MS", MG: "MG", PA: "PA", PB: "PB", PR: "PR", PE: "PE", PI: "PI",
+    RJ: "RJ", RN: "RN", RS: "RS", RO: "RO", RR: "RR", SC: "SC", SP: "SP", SE: "SE", TO: "TO",
+  },
+  "load-type": {
+    WEIGHT: "1 - Peso",
+    INVOICE_VALUE: "2 - Valor da nota",
+    VOLUME: "3 - Volume",
+  },
+  "freight-calculation-type": {
+    REAL_WEIGHT: "Peso real",
+    CUBED_WEIGHT: "Peso cubado",
+    HIGHEST_WEIGHT: "Maior peso",
+  },
+  "carrier-api-type": {
+    JT: "J&T Express",
+    JADLOG: "Jadlog",
+    CORREIOS: "Correios",
+    LOGGI: "Loggi",
+    MELHOR_ENVIO: "Melhor Envio",
+  },
   "tariff-acronym": {
     AC_CAP: "AC-CAP",
     SC_CAP: "SC-CAP",

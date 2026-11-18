@@ -253,7 +253,9 @@ function WorkTabItem({
             value={tab.key}
             className={cn(
               "h-9 flex-none justify-start gap-xs! rounded-t-md! rounded-b-none! px-sm! py-xs! leading-5",
-              "border border-b-0! border-transparent font-normal! text-muted-text not-data-active:pr-2xl!",
+              "border border-b-0! border-transparent font-normal! text-muted-text",
+              // Mantém o fundo de hover enquanto o cursor está sobre o botão de fechar (irmão do trigger).
+              "not-data-active:group-hover/work-tab:bg-accent-2",
               "data-active:border-border-100! data-active:font-medium! data-active:text-text! data-active:shadow-none!",
             )}
             onAuxClick={handleAuxClick}
@@ -262,24 +264,23 @@ function WorkTabItem({
             <tab.icon />
             <span className="max-w-50 truncate">{tab.label}</span>
           </TabsTrigger>
-          {isActive && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 right-px h-6 w-12 -translate-y-1/2 bg-linear-to-r from-background/0 to-background to-30% opacity-0 group-hover/work-tab:opacity-100 group-has-focus-visible/work-tab:opacity-100"
-            />
-          )}
+          {/* Degradê com a cor de fundo da aba (ativa ou em hover), para o botão cobrir o fim do texto. */}
+          <span
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute top-1/2 right-px h-6 w-12 -translate-y-1/2 bg-linear-to-r to-30% opacity-0 group-hover/work-tab:opacity-100 group-has-focus-visible/work-tab:opacity-100",
+              isActive ? "from-background/0 to-background" : "from-accent-2/0 to-accent-2",
+            )}
+          />
           <IconButton
             variant="ghost"
             size="mini"
             title="Fechar aba"
-            className={cn(
-              "absolute opacity-0 group-hover/work-tab:opacity-100 focus-visible:opacity-100",
-              isActive ? "top-1/2 right-xs size-6 -translate-y-1/2" : "top-2xs right-2xs size-5",
-            )}
+            className="absolute top-1/2 right-xs size-6 -translate-y-1/2 opacity-0 group-hover/work-tab:opacity-100 focus-visible:opacity-100"
             onClick={onClose}
             data-testid={`${testId}-close-button`}
           >
-            <XIcon className={isActive ? "size-4 fill-text!" : "size-4.5 fill-muted-text!"} />
+            <XIcon className="size-4 fill-text!" />
             <span className="sr-only">Fechar aba</span>
           </IconButton>
         </span>

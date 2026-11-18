@@ -4,10 +4,13 @@ type Reconciliation = {
   id: number;
   date: string;
   customerName: string;
+  cnpj: string;
   tolerance: number;
   cteCount: number;
+  itemCount: number;
   totalValue: number;
   calculatedFreight: number;
+  difference: number;
   reconciledPercent: number;
   status: string;
 };

@@ -2,12 +2,20 @@ import { api } from "./api";
 
 type Cte = {
   id: number;
+  number: string;
+  customerIdentifier: string;
   customerName: string;
+  competence: string;
   key: string;
   issuedAt: string;
+  dueDate: string;
   carrierService: string;
+  storeCnpj: string;
+  issuerCnpj: string;
+  recipientCnpj: string;
+  invoice: string;
   freightValue: number;
-  status: string;
+  reconciled: boolean;
 };
 
 type CteFetchAllRequest = { filters?: Partial<Cte> };

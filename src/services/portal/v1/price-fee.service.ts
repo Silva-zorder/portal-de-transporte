@@ -3,11 +3,16 @@ import { api } from "./api";
 type PriceFee = {
   id: number;
   priceTableId: number;
+  tariffAcronym: string;
   zipStart: string;
   zipEnd: string;
   type: string;
+  originUf: string;
   calculationBase: string;
+  baseValueStart: number;
+  baseValueEnd: number;
   value: number;
+  minValue: number;
   order: number;
 };
 

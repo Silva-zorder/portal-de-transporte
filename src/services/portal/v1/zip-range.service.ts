@@ -7,6 +7,7 @@ type ZipRange = {
   zipStart: string;
   zipEnd: string;
   days: number;
+  maxDays: number;
 };
 
 type ZipRangeFetchAllRequest = { filters?: Partial<ZipRange> };
