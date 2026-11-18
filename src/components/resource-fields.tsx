@@ -17,6 +17,19 @@ import {
   FieldLegend,
   FieldSet,
 } from "@hubble-ds/components/ui/field";
+import {
+  FileUpload,
+  FileUploadDropzone,
+  FileUploadDropzoneDescription,
+  FileUploadDropzoneMedia,
+  FileUploadDropzoneTitle,
+  FileUploadItem,
+  FileUploadItemDelete,
+  FileUploadItemMetadata,
+  FileUploadItemPreview,
+  FileUploadList,
+  FileUploadTrigger,
+} from "@hubble-ds/components/ui/file-upload";
 import { Input } from "@hubble-ds/components/ui/input";
 import {
   InputGroup,
@@ -38,15 +51,18 @@ import {
 } from "@hubble-ds/components/ui/select";
 import { Switch } from "@hubble-ds/components/ui/switch";
 import { Textarea } from "@hubble-ds/components/ui/textarea";
+import { toast } from "@hubble-ds/components/ui/toast";
 import { maskCep } from "@hubble-ds/utils/cep";
 import { maskCnpj } from "@hubble-ds/utils/cnpj";
 import { maskMonetary, unmaskMonetaryInput } from "@hubble-ds/utils/monetary";
-import { CalendarBlankIcon } from "@phosphor-icons/react";
+import { useCopyToClipboard } from "@hubble-ds/hooks/use-copy-to-clipboard";
+import { CalendarBlankIcon, CheckIcon, CopyIcon, XIcon } from "@phosphor-icons/react";
 import { cn } from "cn";
 import { ptBR } from "date-fns/locale";
 import { type ComponentProps, type ReactNode, useState } from "react";
 import {
   formatDate,
+  formatMonth,
   formatDecimal,
   formatFieldValue,
   parseDate,
@@ -82,7 +98,9 @@ function toDraft(
     const value = values[field.name];
     if (field.kind === "decimal") draft[field.name] = formatDecimal(Number(value ?? 0));
     if (field.kind === "integer") draft[field.name] = String(value ?? "");
-    if (field.kind === "multiselect") draft[field.name] = Array.isArray(value) ? value : [];
+    if (field.kind === "multiselect" || field.kind === "file") {
+      draft[field.name] = Array.isArray(value) ? value : [];
+    }
   }
   return draft;
 }
@@ -110,7 +128,9 @@ function findMissingFields(
     .filter((field) => {
       const value = draft[field.name];
       if (field.kind === "money") return value === undefined || value === null;
-      if (field.kind === "multiselect") return !Array.isArray(value) || value.length === 0;
+      if (field.kind === "multiselect" || field.kind === "file") {
+        return !Array.isArray(value) || value.length === 0;
+      }
       return String(value ?? "").trim() === "";
     })
     .map((field) => field.name);
@@ -236,16 +256,19 @@ function ResourceDateControl({
   value,
   onValueChange,
   placeholder = "Selecionar data",
+  month = false,
   ...props
 }: Readonly<
   Omit<ComponentProps<typeof Button>, "value"> & {
     value: string;
     onValueChange: (value: string) => void;
     placeholder?: string;
+    /** Guarda só mês e ano (MM/AAAA); o DS não tem seletor de mês, então usa o Calendar. */
+    month?: boolean;
   }
 >) {
   const [open, setOpen] = useState(false);
-  const selected = parseDate(value);
+  const selected = month ? parseDate(`01/${value}`) : parseDate(value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -266,13 +289,73 @@ function ResourceDateControl({
           selected={selected}
           defaultMonth={selected}
           onSelect={(date) => {
-            onValueChange(date ? formatDate(date) : "");
+            onValueChange(date ? (month ? formatMonth(date) : formatDate(date)) : "");
             setOpen(false);
           }}
           locale={ptBR}
         />
       </PopoverContent>
     </Popover>
+  );
+}
+
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+
+/** Um arquivo no FileUpload do DS; os formatos aceitos vêm de `field.accept`. */
+function ResourceFileControl({
+  field,
+  value,
+  onValueChange,
+  invalid,
+  "data-testid": testId,
+}: Readonly<{
+  field: AnyResourceField;
+  value: File[];
+  onValueChange: (value: unknown) => void;
+  invalid: boolean;
+  "data-testid": string;
+}>) {
+  const formats = (field.accept ?? "")
+    .split(",")
+    .map((format) => format.trim().toUpperCase())
+    .filter(Boolean)
+    .join(", ");
+  return (
+    <FileUpload
+      value={value}
+      onValueChange={onValueChange}
+      maxFiles={1}
+      maxSize={MAX_FILE_SIZE_BYTES}
+      accept={field.accept}
+      label={field.label}
+      aria-invalid={invalid || undefined}
+    >
+      <FileUploadDropzone data-testid={`${testId}-dropzone`}>
+        <FileUploadDropzoneMedia />
+        <FileUploadDropzoneTitle>
+          {field.placeholder ?? "Clique aqui ou arraste um arquivo"}
+        </FileUploadDropzoneTitle>
+        {formats && (
+          <FileUploadDropzoneDescription>Formatos aceitos: {formats}</FileUploadDropzoneDescription>
+        )}
+        <FileUploadTrigger asChild>
+          <Button variant="outline" size="small" data-testid={`${testId}-select-button`}>
+            Selecionar arquivo
+          </Button>
+        </FileUploadTrigger>
+      </FileUploadDropzone>
+      <FileUploadList>
+        {value.map((file) => (
+          <FileUploadItem key={`${file.name}-${file.size}`} value={file}>
+            <FileUploadItemPreview />
+            <FileUploadItemMetadata />
+            <FileUploadItemDelete aria-label="Remover arquivo">
+              <XIcon />
+            </FileUploadItemDelete>
+          </FileUploadItem>
+        ))}
+      </FileUploadList>
+    </FileUpload>
   );
 }
 
@@ -314,6 +397,33 @@ function ResourceFieldControl({
         value={Array.isArray(value) ? value : []}
         onValueChange={onValueChange}
         data-testid={`${testId}-combobox`}
+      />
+    );
+  }
+
+  if (kind === "file") {
+    return (
+      <ResourceFileControl
+        field={field}
+        value={Array.isArray(value) ? (value as File[]) : []}
+        onValueChange={onValueChange}
+        invalid={invalid}
+        data-testid={testId}
+      />
+    );
+  }
+
+  if (kind === "month") {
+    return (
+      <ResourceDateControl
+        id={id}
+        month
+        value={String(value ?? "")}
+        onValueChange={onValueChange}
+        placeholder={field.placeholder ?? "MM/AAAA"}
+        disabled={field.locked}
+        aria-invalid={invalid || undefined}
+        data-testid={`${testId}-button`}
       />
     );
   }
@@ -454,6 +564,51 @@ function ResourceFormFields({
   );
 }
 
+/** JSON/código somente leitura com o botão "Copiar" ao lado do rótulo. */
+function ResourceCodeField({
+  id,
+  label,
+  value,
+  className,
+  "data-testid": testId,
+}: Readonly<{
+  id: string;
+  label: string;
+  value: string;
+  className?: string;
+  "data-testid": string;
+}>) {
+  const [copy, isCopied] = useCopyToClipboard(1500);
+  return (
+    <Field className={className}>
+      <div className="flex items-center justify-between gap-xs">
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <Button
+          variant="link"
+          size="mini"
+          onClick={() =>
+            copy(value).catch(() =>
+              toast.error("Não foi possível copiar. Selecione o texto e copie manualmente."),
+            )
+          }
+          data-testid={`${testId}-copy-button`}
+        >
+          {isCopied ? <CheckIcon /> : <CopyIcon />}
+          {isCopied ? "Copiado" : "Copiar"}
+        </Button>
+      </div>
+      <Textarea
+        id={id}
+        readOnly
+        rows={Math.min(14, Math.max(4, value.split("\n").length))}
+        className="typo-monospaced"
+        value={value}
+        data-testid={`${testId}-textarea`}
+      />
+    </Field>
+  );
+}
+
 function ResourceReadOnlyFields({
   fields,
   record,
@@ -490,35 +645,30 @@ function ResourceReadOnlyFields({
             </Field>
           );
         }
+        if (field.kind === "code") {
+          return (
+            <ResourceCodeField
+              key={field.name}
+              id={id}
+              label={field.label}
+              value={String(record[field.name] ?? "")}
+              className={fieldSpanClassNames[field.span ?? "full"]}
+              data-testid={testId}
+            />
+          );
+        }
         return (
           <Field
             key={field.name}
             className={fieldSpanClassNames[field.span ?? "full"]}
           >
             <FieldLabel htmlFor={id}>{field.label}</FieldLabel>
-            {field.kind === "code" ? (
-              <Textarea
-                id={id}
-                disabled
-                readOnly
-                rows={6}
-                className="typo-monospaced"
-                value={String(record[field.name] ?? "")}
-                data-testid={`${testId}-textarea`}
-              />
-            ) : (
-              <Input
-                id={id}
-                disabled
-                readOnly
-                value={formatFieldValue(
-                  record[field.name],
-                  field.kind,
-                  field.suffix,
-                )}
-                data-testid={`${testId}-input`}
-              />
-            )}
+            <Input
+              id={id}
+              readOnly
+              value={formatFieldValue(record[field.name], field.kind, field.suffix)}
+              data-testid={`${testId}-input`}
+            />
           </Field>
         );
       }}

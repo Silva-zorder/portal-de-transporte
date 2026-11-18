@@ -1,5 +1,6 @@
 import { toast } from "@hubble-ds/components/ui/toast";
-import { ArrowsClockwiseIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, EyeIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
+import { NotificationRequests } from "@/components/notification-requests";
 import { useLogFetchAllQuery } from "@/hooks/use-log-fetch-all-query";
 import { useMongoSyncCreateMutation } from "@/hooks/use-mongo-sync-create-mutation";
 import { useMongoSyncFetchAllQuery } from "@/hooks/use-mongo-sync-fetch-all-query";
@@ -20,18 +21,18 @@ const notificationResource = defineResource<Notification>({
   describe: (notification) => `Notificação ${notification.number}`,
   hooks: { useFetchAll: useNotificationFetchAllQuery },
   columns: [
-    { key: "identifier", header: "Identificador", size: 150, filterable: true },
-    { key: "trackingCode", header: "Código de rastreio", size: 180 },
-    { key: "number", header: "Número", size: 110 },
+    { key: "identifier", header: "Identificador", size: 130 },
+    { key: "trackingCode", header: "Código de rastreio", size: 170 },
+    { key: "number", header: "Número", size: 100 },
     { key: "key", header: "Chave" },
-    { key: "issuedAt", header: "Data de emissão", size: 200 },
+    { key: "issuedAt", header: "Data de emissão", size: 170 },
     { key: "carrierService", header: "Transp. serviço" },
-    { key: "platform", header: "Plataforma", size: 120 },
+    { key: "platform", header: "Plataforma", size: 100 },
     {
       key: "status",
       header: "Situação",
       kind: "badge",
-      size: 120,
+      size: 100,
       sortable: false,
       badgeVariants: { Enviado: "success", Falha: "destructive" },
     },
@@ -48,7 +49,7 @@ const notificationResource = defineResource<Notification>({
     { key: "status", label: "Situação", kind: "select" },
     { key: "platform", label: "Plataforma", kind: "select" },
   ],
-  toolbar: ["refresh"],
+  toolbar: [],
   selectable: true,
   pageActions: [
     {
@@ -65,19 +66,19 @@ const notificationResource = defineResource<Notification>({
         ),
     },
   ],
-  detail: {
-    title: (notification) => `Notificação · ${notification.number}`,
-    fields: [
-      { name: "identifier", label: "Identificador", span: "half" },
-      { name: "status", label: "Situação", span: "half" },
-      { name: "trackingCode", label: "Código de rastreio", span: "half" },
-      { name: "number", label: "Número", span: "half" },
-      { name: "key", label: "Chave" },
-      { name: "issuedAt", label: "Data de emissão", span: "half" },
-      { name: "carrierService", label: "Transp. serviço", span: "half" },
-      { name: "platform", label: "Plataforma", span: "half" },
-    ],
-  },
+  views: [
+    {
+      key: "detail",
+      label: "Visualizar",
+      icon: EyeIcon,
+      kind: "drawer",
+      exposed: true,
+      title: () => "Detalhes do request",
+      fields: [],
+      content: NotificationRequests,
+      footerActions: ["resend"],
+    },
+  ],
   rowActions: [
     {
       key: "resend",
@@ -121,7 +122,7 @@ const mongoSyncResource = defineResource<MongoSync>({
   ],
   searchKeys: ["tables", "filters", "requestedAt"],
   searchPlaceholder: "Pesquisar sincronização...",
-  toolbar: ["refresh"],
+  toolbar: [],
   createLabel: "Nova sincronização",
   createIcon: ArrowsClockwiseIcon,
   form: {

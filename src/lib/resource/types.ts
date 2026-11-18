@@ -1,4 +1,5 @@
 import type { Icon } from "@phosphor-icons/react";
+import type { ComponentType } from "react";
 import type {
   UseMutationResult,
   UseQueryResult,
@@ -35,7 +36,8 @@ type ResourceColumn<TRecord> = {
   sortable?: boolean;
   /** Vira um filtro de seleção quando a definição não declara `filters`. */
   filterable?: boolean;
-  badgeVariants?: Record<string, ResourceBadgeVariant>;
+  /** Variante do badge por texto exibido; `null` deixa a célula vazia (o filtro mantém a opção). */
+  badgeVariants?: Record<string, ResourceBadgeVariant | null>;
   /** Texto exibido para cada valor (ex.: `{ true: "Parceira", false: "Não parceira" }`). */
   valueLabels?: Record<string, string>;
 };
@@ -45,6 +47,8 @@ type ResourceFieldKind =
   | "select"
   | "multiselect"
   | "date"
+  | "month"
+  | "file"
   | "money"
   | "decimal"
   | "integer"
@@ -67,6 +71,8 @@ type ResourceField<TRecord> = {
   /** Campo exibido mas nunca editável (ex.: tabela pai de uma carga). */
   locked?: boolean;
   suffix?: string;
+  /** Formatos aceitos por um campo `file` (ex.: `.zip,.xml`). */
+  accept?: string;
   placeholder?: string;
   options?: readonly string[];
   useOptions?: () => readonly string[];
@@ -96,7 +102,8 @@ type ResourceFilter<TRecord> = {
   valueLabels?: Record<string, string>;
 };
 
-type ResourceToolbarAction = "export" | "download-csv" | "import" | "refresh";
+/** Importar/Exportar da listagem; viram botões do cabeçalho da página (grupo de transferência). */
+type ResourceToolbarAction = "export" | "import";
 
 type ResourceHooks<TRecord> = {
   useFetchAll: (deps?: {
@@ -153,6 +160,12 @@ type ResourceView<TRecord> = {
   kind: "drawer" | "dialog";
   title: (record: TRecord) => string;
   fields: ResourceField<TRecord>[];
+  /** Mostra a visualização como botão secondary na célula "Ações", fora do menu. */
+  exposed?: boolean;
+  /** Conteúdo próprio no lugar dos `fields` (ex.: a lista de requests de uma notificação). */
+  content?: ComponentType<{ record: TRecord; context: string }>;
+  /** Chaves de `rowActions` repetidas no rodapé (a primeira como primary), ao lado de "Fechar". */
+  footerActions?: string[];
 };
 
 /** Edição parcial de um registro com campos próprios (ex.: "Configuração de integração"). */
@@ -195,10 +208,15 @@ type ResourcePageAction<TRecord> = {
   primary?: boolean;
   form?: ResourcePageActionForm;
   summary?: ResourcePageActionSummary<TRecord>;
-  /** Recebe os registros marcados na coluna de seleção (vazio quando a listagem não é `selectable`). */
-  run?: (selected: TRecord[]) => void;
+  /**
+   * Recebe os registros marcados na coluna de seleção (vazio quando a listagem não é `selectable`)
+   * e os registros visíveis na listagem, já com busca e filtros aplicados.
+   */
+  run?: (selected: TRecord[], visible: TRecord[]) => void;
   /** O botão só habilita com um ou mais registros marcados. */
   requiresSelection?: boolean;
+  /** Ações seguidas do mesmo grupo ficam juntas; entre grupos diferentes entra um separador vertical. */
+  group?: string;
 };
 
 type ResourceDefinition<TRecord> = {

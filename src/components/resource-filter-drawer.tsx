@@ -1,4 +1,3 @@
-import { Badge } from "@hubble-ds/components/ui/badge";
 import { Button } from "@hubble-ds/components/ui/button";
 import { ButtonGroup } from "@hubble-ds/components/ui/button-group";
 import { Calendar } from "@hubble-ds/components/ui/calendar";
@@ -12,6 +11,11 @@ import {
 } from "@hubble-ds/components/ui/drawer";
 import { Field, FieldLabel } from "@hubble-ds/components/ui/field";
 import { IconButton } from "@hubble-ds/components/ui/icon-button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hubble-ds/components/ui/tooltip";
 import { Input } from "@hubble-ds/components/ui/input";
 import {
   Popover,
@@ -291,21 +295,29 @@ function ResourceFilterDrawer({
     setOpen(false);
   };
 
+  const filterLabel =
+    activeCount > 0
+      ? `Filtrar · ${activeCount} filtro${activeCount === 1 ? "" : "s"} ativo${activeCount === 1 ? "" : "s"}`
+      : "Filtrar";
   const cleared = Object.fromEntries(filters.map((filter) => [filter.key, ""]));
 
   return (
     <>
-      <Button
-        variant="outline"
-        onClick={() => handleOpenChange(true)}
-        data-testid={`${listContext}-filter-button`}
-      >
-        <FunnelIcon />
-        Filtrar
-        {activeCount > 0 && (
-          <Badge data-testid={`${listContext}-filter-count-badge`}>{activeCount}</Badge>
-        )}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <IconButton
+            // Com filtros do drawer ativos o botão fica `secondary`; a contagem vai no tooltip.
+            variant={activeCount > 0 ? "secondary" : "outline"}
+            onClick={() => handleOpenChange(true)}
+            aria-label={filterLabel}
+            data-active-count={activeCount}
+            data-testid={`${listContext}-filter-button`}
+          >
+            <FunnelIcon />
+          </IconButton>
+        </TooltipTrigger>
+        <TooltipContent>{filterLabel}</TooltipContent>
+      </Tooltip>
       <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
         <DrawerContent data-testid={`${context}-drawer`}>
           <DrawerHeader>

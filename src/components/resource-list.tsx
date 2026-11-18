@@ -18,18 +18,23 @@ import {
   DataTableColumnSortingIndicator,
   DataTableFooter,
   DataTableGrid,
+  DataTableGridBody,
+  DataTableGridHeader,
   DataTableGridScrollArea,
   DataTablePagination,
 } from "@hubble-ds/components/ui/data-table";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@hubble-ds/components/ui/dropdown-menu";
 import { IconButton } from "@hubble-ds/components/ui/icon-button";
+import { Separator } from "@hubble-ds/components/ui/separator";
 import { Switch } from "@hubble-ds/components/ui/switch";
 import { toast } from "@hubble-ds/components/ui/toast";
 import {
@@ -40,15 +45,13 @@ import {
 import {
   ArrowRightIcon,
   ArrowSquareOutIcon,
-  ArrowsClockwiseIcon,
+  ColumnsIcon,
   DotsThreeVerticalIcon,
-  DownloadSimpleIcon,
   EyeIcon,
   FloppyDiskIcon,
   type Icon,
   PencilSimpleIcon,
   TrashIcon,
-  UploadSimpleIcon,
   XSquareIcon,
 } from "@phosphor-icons/react";
 import { columnOrderingFeature, useTable } from "@tanstack/react-table";
@@ -69,11 +72,10 @@ import {
   resolveFilters,
   splitFilters,
 } from "@/lib/resource/filters";
-import { downloadCsv, formatColumnValue, toCsv } from "@/lib/resource/format";
+import { formatColumnValue } from "@/lib/resource/format";
 import type {
   AnyResourceDefinition,
   ResourceRecord,
-  ResourceToolbarAction,
 } from "@/lib/resource/types";
 import {
   ResourceFilterDrawer,
@@ -88,26 +90,11 @@ import {
   resolveViews,
 } from "./resource-form";
 import { ResourceBadge } from "./resource-badge";
-import { ResourceImportDialog } from "./resource-import-dialog";
 
 const resourceTableFeatures = { columnOrderingFeature };
 const NO_RECORDS: ResourceRecord[] = [];
 const useNoMutation = () => undefined;
 const MIN_COLUMN_WIDTH = 64;
-
-const toolbarLabels: Record<ResourceToolbarAction, string> = {
-  export: "Exportar",
-  "download-csv": "Baixar CSV",
-  import: "Importar",
-  refresh: "Atualizar",
-};
-
-const toolbarIcons: Record<ResourceToolbarAction, Icon> = {
-  export: DownloadSimpleIcon,
-  "download-csv": DownloadSimpleIcon,
-  import: UploadSimpleIcon,
-  refresh: ArrowsClockwiseIcon,
-};
 
 type RowMenuItem = {
   key: string;
@@ -150,7 +137,6 @@ function ResourceList({
   const [searchField, setSearchField] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterValues, setFilterValues] = useState<ResourceFilterValues>({});
-  const [isImportOpen, setIsImportOpen] = useState(false);
   const [contextRecord, setContextRecord] = useState<ResourceRecord>();
   const isResizing = useRef(false);
 
@@ -169,6 +155,7 @@ function ResourceList({
       ),
     [allRecords, filters, search, searchField, searchTerm, filterValues],
   );
+  controller.visibleRecords.current = records;
 
   const setFilterValue = (key: string, value: string) =>
     setFilterValues((current) => ({ ...current, [key]: value }));
@@ -210,7 +197,9 @@ function ResourceList({
 
   const buildMenu = (record: ResourceRecord) => {
     const items: RowMenuItem[] = [
-      ...resolveViews(definition).map((view) => ({
+      ...resolveViews(definition)
+        .filter((view) => !view.exposed)
+        .map((view) => ({
         key: view.key,
         label: view.label,
         icon: view.icon,
@@ -264,6 +253,14 @@ function ResourceList({
 
   /** Tudo o que a célula "Ações" oferece: botões expostos primeiro, depois o menu. "Excluir"/"Remover" fica à parte. */
   const buildContextMenu = (record: ResourceRecord): RowMenuItem[] => [
+    ...resolveViews(definition)
+      .filter((view) => view.exposed)
+      .map((view) => ({
+        key: view.key,
+        label: view.label,
+        icon: view.icon,
+        onSelect: () => controller.openView(record, view.key),
+      })),
     ...(definition.rowLinks ?? []).map((link) => ({
       key: link.key,
       label: link.label,
@@ -299,7 +296,9 @@ function ResourceList({
     const dataColumns = definition.columns.map((config) =>
       column.accessor((record) => record[config.key], {
         id: config.key,
-        size: config.size,
+        // Sem `size`, a coluna fica com o padrão do DS (largura automática); `size: undefined`
+        // explícito virava os 150 px padrão do TanStack e empurrava a tabela para fora da tela.
+        ...(config.size ? { size: config.size } : {}),
         enableSorting: config.kind !== "switch" && (config.sortable ?? true),
         meta: { title: config.header },
         header: ({ column: tableColumn, table: headerTable }) => {
@@ -386,6 +385,9 @@ function ResourceList({
           }
           const text = formatColumnValue(value, config.kind, config.valueLabels);
           if (config.kind === "badge") {
+            if (config.badgeVariants?.[text] === null) {
+              return <DataTableCell cell={cell} title={text} />;
+            }
             return (
               <DataTableCell cell={cell} title={text}>
                 <ResourceBadge
@@ -422,12 +424,28 @@ function ResourceList({
       ),
     });
 
+    const exposedViews = resolveViews(definition).filter((view) => view.exposed);
     const exposedActions = (definition.rowActions ?? []).filter((action) => action.exposed);
-    const linkCount = (definition.rowLinks?.length ?? 0) + exposedActions.length;
+    const linkCount =
+      exposedViews.length + (definition.rowLinks?.length ?? 0) + exposedActions.length;
     const exposedCount = linkCount + (definition.exposeRemove ? 1 : 0);
+    const exposedLabels = [
+      ...exposedViews.map((view) => view.label),
+      ...(definition.rowLinks ?? []).map((link) => link.label),
+      ...exposedActions.map((action) => action.label),
+      ...(definition.exposeRemove ? ["Remover"] : []),
+    ];
+    const hasRowMenu =
+      resolveViews(definition).some((view) => !view.exposed) ||
+      (definition.actionForms?.length ?? 0) > 0 ||
+      Boolean(definition.recordPath) ||
+      Boolean(definition.form && definition.hooks.useUpdate) ||
+      (definition.rowActions ?? []).some((action) => !action.exposed) ||
+      (Boolean(definition.hooks.useRemove) && !definition.exposeRemove);
     const actionsColumn = column.display({
       id: "actions",
-      size: 56 + exposedCount * 112,
+      // Largura só do que a célula mostra, para a tabela caber sem cortar as ações à direita.
+      size: actionsColumnWidth(exposedLabels, hasRowMenu),
       enableSorting: false,
       enableHiding: false,
       header: ({ column: tableColumn }) => (
@@ -445,6 +463,17 @@ function ResourceList({
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
+            {exposedViews.map((view) => (
+              <Button
+                key={view.key}
+                variant="secondary"
+                size="mini"
+                onClick={() => controller.openView(record, view.key)}
+                data-testid={`${context}-row-${view.key}-button-${record.id}`}
+              >
+                {view.label}
+              </Button>
+            ))}
             {definition.rowLinks?.map((link) => (
               <Button
                 key={link.key}
@@ -559,18 +588,10 @@ function ResourceList({
     }),
   );
 
-  const handleExport = () => {
-    downloadCsv(
-      `${definition.key}.csv`,
-      toCsv(records, [{ key: "id", header: "ID" }, ...definition.columns]),
-    );
-    toast.success(`${records.length} registros exportados em CSV.`);
-  };
-
-  const handleRefresh = async () => {
-    await query.refetch();
-    toast.success("Lista atualizada.");
-  };
+  // Ao menos uma coluna de dados fica sempre visível.
+  const visibleDataColumns = definition.columns.filter(
+    (config) => table.getColumn(config.key)?.getIsVisible() ?? true,
+  ).length;
 
   const handleResetView = () => {
     setSearchField("");
@@ -582,13 +603,6 @@ function ResourceList({
     table.resetColumnSizing();
     controller.setSelection({});
     toast.success("Visualização restaurada.");
-  };
-
-  const toolbarHandlers: Record<ResourceToolbarAction, () => void> = {
-    export: handleExport,
-    "download-csv": handleExport,
-    import: () => setIsImportOpen(true),
-    refresh: handleRefresh,
   };
 
   return (
@@ -616,6 +630,10 @@ function ResourceList({
             values={filterValues}
             onValueChange={setFilterValue}
           />
+          {inputs.length + headerSelects.length > 0 && (
+            // Separa os filtros dos botões de ícone (filtro e colunas); `self-stretch` dá a altura da linha (o DS usa `h-full`, que aqui fica 0).
+            <Separator orientation="vertical" className="self-stretch data-[orientation=vertical]:h-auto" />
+          )}
           {drawerSelects.length > 0 && (
             <ResourceFilterDrawer
               context={context}
@@ -626,20 +644,46 @@ function ResourceList({
               onValuesChange={setFilterValues}
             />
           )}
-          {definition.toolbar.map((action) => {
-            const ActionIcon = toolbarIcons[action];
-            return (
-              <Button
-                key={action}
-                variant="outline"
-                onClick={toolbarHandlers[action]}
-                data-testid={`${context}-${action}-button`}
-              >
-                <ActionIcon />
-                {toolbarLabels[action]}
-              </Button>
-            );
-          })}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <IconButton
+                    variant="outline"
+                    aria-label="Colunas da tabela"
+                    data-testid={`${context}-columns-button`}
+                  >
+                    <ColumnsIcon />
+                  </IconButton>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Colunas da tabela</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" data-testid={`${context}-columns-menu`}>
+              <DropdownMenuLabel>Colunas visíveis</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                {definition.columns.map((config) => {
+                  const tableColumn = table.getColumn(config.key);
+                  const isVisible = tableColumn?.getIsVisible() ?? true;
+                  const isLastVisible = isVisible && visibleDataColumns === 1;
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={config.key}
+                      checked={isVisible}
+                      disabled={isLastVisible}
+                      // Mantém o menu aberto para marcar várias colunas seguidas.
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={(checked) => tableColumn?.toggleVisibility(Boolean(checked))}
+                      data-testid={`${context}-${toTestId(config.key)}-column-visibility-checkbox`}
+                    >
+                      {config.header}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -649,10 +693,15 @@ function ResourceList({
         className="min-h-0 flex-1 gap-0"
         data-testid={`${context}-table`}
       >
+        {/*
+         * O respiro fica num contêiner por fora: com padding na própria área de rolagem, o cabeçalho
+         * sticky gruda abaixo do padding e as linhas roladas apareciam acima dele.
+         */}
+        <div className="flex min-h-0 flex-1 flex-col p-md">
         <ContextMenu onOpenChange={(open) => !open && setContextRecord(undefined)}>
           <ContextMenuTrigger asChild>
             <DataTableGridScrollArea
-              className="flex-1 p-md"
+              className="min-h-0 flex-1"
               onContextMenu={(event) => {
                 // O DS não marca o id no <tr>; a posição da linha no corpo é a posição no row model.
                 const row = (event.target as HTMLElement).closest(
@@ -675,7 +724,11 @@ function ResourceList({
               }}
               data-testid={`${context}-table-context-menu-trigger`}
             >
-              <DataTableGrid />
+              <DataTableGrid>
+                {/* Header em accent 200 (`accent-2`); o DS pinta o <tr> com `bg-accent!`. */}
+                <DataTableGridHeader className="**:[tr]:bg-accent-2!" />
+                <DataTableGridBody />
+              </DataTableGrid>
             </DataTableGridScrollArea>
           </ContextMenuTrigger>
           {contextRecord && (
@@ -710,6 +763,7 @@ function ResourceList({
             </ContextMenuContent>
           )}
         </ContextMenu>
+        </div>
         <DataTableFooter className="flex items-center gap-xs border-t border-border-100 bg-background px-md py-xs">
           <span className="text-sm text-text">Resultados por página</span>
           <DataTablePagination
@@ -770,13 +824,24 @@ function ResourceList({
       />
       <ResourceViewOverlays definition={definition} controller={controller} />
       <ResourceActionFormOverlays definition={definition} controller={controller} />
-      <ResourceImportDialog
-        definition={definition}
-        open={isImportOpen}
-        onOpenChange={setIsImportOpen}
-      />
     </section>
   );
+}
+
+/**
+ * Largura da coluna "Ações": cada Button `mini` do DS mede ~6 px por caractere + 16 px de padding
+ * (medido: "Visualizar" 71 px, "Reenviar" 65 px), separados por `gap-2xs`; o ⋮ é um IconButton
+ * `mini` (24 px); a célula tem `p-xs` dos dois lados.
+ */
+function actionsColumnWidth(labels: readonly string[], hasMenu: boolean) {
+  const CELL_PADDING = 16;
+  const GAP = 4;
+  const MENU_BUTTON = 24;
+  const buttons = labels.reduce((total, label) => total + label.length * 6 + 16, 0);
+  const items = labels.length + (hasMenu ? 1 : 0);
+  const width =
+    CELL_PADDING + buttons + (hasMenu ? MENU_BUTTON : 0) + Math.max(0, items - 1) * GAP;
+  return Math.max(72, Math.ceil(width));
 }
 
 function toTestId(value: string) {

@@ -16,6 +16,18 @@ type Cte = {
   invoice: string;
   freightValue: number;
   reconciled: boolean;
+  series: string;
+  cteValue: number;
+  nfeKey: string;
+  nfeGeneratedAt: string;
+  orderCode: string;
+  storeName: string;
+  trackingCode: string;
+  carrierTrackingCode: string;
+  grossWeight: number;
+  billedWeight: number;
+  fileName: string;
+  options: string;
 };
 
 type CteFetchAllRequest = { filters?: Partial<Cte> };

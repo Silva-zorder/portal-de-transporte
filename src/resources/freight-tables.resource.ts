@@ -152,7 +152,7 @@ const deadlineTableResource = defineResource<DeadlineTable>({
   ],
   searchKeys: ["id", "name", "carrierService"],
   searchPlaceholder: "Pesquisar tabela de prazo...",
-  toolbar: ["download-csv"],
+  toolbar: ["export"],
   createLabel: "Nova tabela de prazo",
   recordPath: (table) => `/tabelas-de-frete/prazos/${table.id}`,
   rowLinks: [
@@ -603,7 +603,7 @@ const tableRelationResource = defineResource<TableRelation>({
     { key: "intermediationTableId", label: "ID tabela de intermediação", kind: "search" },
     { key: "active", label: "Ativo", kind: "select", valueLabels: { true: "Ativo", false: "Inativo" } },
   ],
-  toolbar: ["download-csv"],
+  toolbar: ["export"],
   createLabel: "Novo relacionamento",
   detail: {
     kind: "drawer",
